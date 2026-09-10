@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { sendStudentEmail, supabase, type Interview, type Student } from '@/lib/supabase';
-import { Calendar, Clock, AlertTriangle, MapPin, CheckCircle2, X, ArrowRight, Mail, Plus } from 'lucide-react';
+import { Calendar, Clock, AlertTriangle, MapPin, CheckCircle2, X, ArrowRight, Mail, Plus, Pencil, Trash2 } from 'lucide-react';
 
 type Props = {
   interviews: Interview[];
@@ -20,6 +20,26 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
+
+  function closeScheduleForm() {
+    setShowScheduleForm(false);
+    setEditingInterview(null);
+  }
+
+  async function deleteSchedule(interview: Interview) {
+    const student = students.find(s => s.id === interview.student_id);
+    if (!window.confirm(`Delete this ${interview.type} schedule for ${student?.name || 'student'}?`)) return;
+
+    const { error } = await supabase.from('interviews').delete().eq('id', interview.id);
+    if (error) {
+      setNotice(`Delete failed: ${error.message}`);
+      return;
+    }
+
+    setNotice('Schedule deleted successfully');
+    onDataChanged?.();
+  }
 
   async function sendSchedule(interview: Interview, student: Student) {
     setSendingId(interview.id); setNotice('');
@@ -177,6 +197,12 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
                 {student && <button onClick={() => sendSchedule(interview, student)} disabled={sendingId === interview.id} title="Send schedule by email" className="p-2 text-yellow-400 hover:bg-yellow-400/10 rounded-lg disabled:opacity-50">
                   <Mail className="w-4 h-4" />
                 </button>}
+                <button onClick={() => { setEditingInterview(interview); setShowScheduleForm(false); }} title="Edit schedule" className="p-2 text-gray-400 hover:bg-yellow-400/10 hover:text-yellow-400 rounded-lg">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => deleteSchedule(interview)} title="Delete schedule" className="p-2 text-gray-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             );
           })}
@@ -184,13 +210,31 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
         </div>
         {notice && <p className={`mt-3 text-sm ${notice.includes('error') || notice.includes('failed') ? 'text-red-400' : 'text-green-400'}`}>{notice}</p>}
       </div>
-      {showScheduleForm && <ScheduleForm students={students} onClose={() => setShowScheduleForm(false)} onCreated={() => { setShowScheduleForm(false); onDataChanged?.(); }} />}
+      {(showScheduleForm || editingInterview) && <ScheduleForm
+        students={students}
+        initialInterview={editingInterview || undefined}
+        onClose={closeScheduleForm}
+        onCreated={() => { closeScheduleForm(); onDataChanged?.(); }}
+      />}
     </div>
   );
 }
 
-function ScheduleForm({ students, onClose, onCreated }: { students: Student[]; onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ student_id: students[0]?.id || '', type: 'interview', scheduled_at: '', duration_minutes: '60', venue: '', round: '1' });
+function ScheduleForm({ students, onClose, onCreated, initialInterview }: { students: Student[]; onClose: () => void; onCreated: () => void; initialInterview?: Interview }) {
+  const initialForm = {
+    student_id: initialInterview?.student_id || students[0]?.id || '',
+    type: initialInterview?.type || 'interview',
+    scheduled_at: initialInterview ? (() => {
+      const value = new Date(initialInterview.scheduled_at);
+      const timezoneOffset = value.getTimezoneOffset() * 60000;
+      return new Date(value.getTime() - timezoneOffset).toISOString().slice(0, 16);
+    })() : '',
+    duration_minutes: initialInterview?.duration_minutes?.toString() || '60',
+    venue: initialInterview?.venue || '',
+    round: initialInterview?.round?.toString() || '1',
+  };
+
+  const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
   const [error, setError] = useState('');
@@ -200,19 +244,28 @@ function ScheduleForm({ students, onClose, onCreated }: { students: Student[]; o
     e.preventDefault();
     setSaving(true); setError('');
     const student = students.find(item => item.id === form.student_id);
-    const { data, error: insertError } = await supabase.from('interviews').insert({
+
+    const payload = {
       student_id: form.student_id,
-      application_id: null,
+      application_id: initialInterview?.application_id ?? null,
       type: form.type,
       scheduled_at: new Date(form.scheduled_at).toISOString(),
       duration_minutes: Number(form.duration_minutes) || 60,
       venue: form.venue || null,
       round: Number(form.round) || 1,
       status: 'scheduled',
-    }).select().single();
-    if (insertError) { setError(insertError.message); setSaving(false); return; }
+    };
 
-    if (sendEmail && student && data) {
+    let result;
+    if (initialInterview) {
+      result = await supabase.from('interviews').update(payload).eq('id', initialInterview.id).select().single();
+    } else {
+      result = await supabase.from('interviews').insert(payload).select().single();
+    }
+
+    if (result.error) { setError(result.error.message); setSaving(false); return; }
+
+    if (sendEmail && student && result.data) {
       const date = new Date(form.scheduled_at).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' });
       const emailResult = await sendStudentEmail({
         to: student.email,
@@ -229,14 +282,14 @@ function ScheduleForm({ students, onClose, onCreated }: { students: Student[]; o
   return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
     <div className="absolute inset-0 bg-black/70" />
     <form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-lg bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4">
-      <div className="flex items-center justify-between"><div><h3 className="text-xl font-bold text-white">Schedule interview or test</h3><p className="text-sm text-gray-500">The selected student can receive the schedule by email.</p></div><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div>
+      <div className="flex items-center justify-between"><div><h3 className="text-xl font-bold text-white">{initialInterview ? 'Edit schedule' : 'Schedule interview or test'}</h3><p className="text-sm text-gray-500">The selected student can receive the schedule by email.</p></div><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div>
       <label className="block text-sm text-gray-400">Student<select required value={form.student_id} onChange={e => update('student_id', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white">{students.map(student => <option key={student.id} value={student.id}>{student.name} - {student.email}</option>)}</select></label>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-400">Type<select value={form.type} onChange={e => update('type', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"><option value="interview">Interview</option><option value="test">Test</option><option value="assessment">Assessment</option><option value="other">Other</option></select></label><label className="block text-sm text-gray-400">Round<input min="1" type="number" value={form.round} onChange={e => update('round', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-400">Date and time<input required type="datetime-local" value={form.scheduled_at} onChange={e => update('scheduled_at', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Duration (minutes)<input min="1" required type="number" value={form.duration_minutes} onChange={e => update('duration_minutes', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
       <label className="block text-sm text-gray-400">Venue or meeting link<input value={form.venue} onChange={e => update('venue', e.target.value)} placeholder="Room 204 or https://meet..." className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>
       <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="accent-yellow-400" /> Send schedule to student Gmail now</label>
       {error && <p className="text-sm text-red-400">{error}</p>}
-      <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving || !students.length} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? 'Saving...' : 'Save schedule'}</button></div>
+      <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving || !students.length} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? (initialInterview ? 'Updating...' : 'Saving...') : (initialInterview ? 'Update schedule' : 'Save schedule')}</button></div>
     </form>
   </div>;
 }

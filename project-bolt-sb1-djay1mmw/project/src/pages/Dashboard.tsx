@@ -86,7 +86,7 @@ function normalizeStudent(student: any): Student {
 }
 import {
   GraduationCap, LayoutDashboard, Users, Building2, Brain, Calendar,
-  FileText, Bell, LogOut, Sparkles, Menu, X, Settings
+  FileText, Bell, LogOut, Sparkles, Menu, X, Settings, RefreshCw
 } from 'lucide-react';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import StudentsTab from '@/components/tabs/StudentsTab';
@@ -228,6 +228,15 @@ export default function Dashboard() {
             </h2>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={loadAllData}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-yellow-400/20 bg-yellow-400/5 text-yellow-400 hover:bg-yellow-400/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="text-xs font-medium">Refresh</span>
+            </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-400/10 border border-green-400/20 rounded-full">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               <span className="text-green-400 text-xs font-medium">System Active</span>
