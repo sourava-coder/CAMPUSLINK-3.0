@@ -17,6 +17,7 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
   const [showCreate, setShowCreate] = useState(false);
 
   const filtered = students.filter(s => {
+    const readiness = calculateReadiness(s);
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.email.toLowerCase().includes(search.toLowerCase()) ||
       (s.roll_number || '').toLowerCase().includes(search.toLowerCase());
@@ -24,9 +25,9 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
       filter === 'all' ? true :
       filter === 'placed' ? s.status === 'placed' :
       filter === 'unplaced' ? s.status !== 'placed' :
-      filter === 'high' ? s.risk_level === 'high' :
-      filter === 'medium' ? s.risk_level === 'medium' :
-      filter === 'low' ? s.risk_level === 'low' : true;
+      filter === 'high' ? readiness.riskLevel === 'high' :
+      filter === 'medium' ? readiness.riskLevel === 'medium' :
+      filter === 'low' ? readiness.riskLevel === 'low' : true;
     return matchSearch && matchFilter;
   });
 
@@ -353,17 +354,88 @@ function StudentDetail({ student, onClose, onDataChanged }: { student: Student; 
 }
 
 function EditStudent({ student, onClose, onSaved }: { student: Student; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ name: student.name, email: student.email, roll_number: student.roll_number || '', branch: student.branch || '', phone: student.phone || '', graduation_year: student.graduation_year?.toString() || '', cgpa: student.cgpa.toString(), resume_url: student.resume_url || '', linkedin_url: student.linkedin_url || '', github_url: student.github_url || '', address: student.address || '', resume_text: student.resume_text || '' });
+  const [form, setForm] = useState({
+    name: student.name,
+    email: student.email,
+    roll_number: student.roll_number || '',
+    branch: student.branch || '',
+    phone: student.phone || '',
+    graduation_year: student.graduation_year?.toString() || '',
+    cgpa: student.cgpa.toString(),
+    projects: student.projects.toString(),
+    internships: student.internships.toString(),
+    backlogs: student.backlogs.toString(),
+    aptitude_score: student.aptitude_score.toString(),
+    communication_score: student.communication_score.toString(),
+    resume_quality: student.resume_quality.toString(),
+    interview_readiness: student.interview_readiness.toString(),
+    skills: student.skills.join(', '),
+    certifications: student.certifications.join(', '),
+    resume_url: student.resume_url || '',
+    linkedin_url: student.linkedin_url || '',
+    github_url: student.github_url || '',
+    address: student.address || '',
+    resume_text: student.resume_text || '',
+  });
   const [saving, setSaving] = useState(false); const [error, setError] = useState('');
   const update = (key: keyof typeof form, value: string) => setForm(current => ({ ...current, [key]: value }));
   async function save(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setError('');
-    const { error: updateError } = await supabase.from('students').update({ ...form, cgpa: Number(form.cgpa) || 0, graduation_year: form.graduation_year ? Number(form.graduation_year) : null }).eq('id', student.id);
+
+    const parsedSkills = form.skills.split(',').map(s => s.trim()).filter(Boolean);
+    const parsedCertifications = form.certifications.split(',').map(s => s.trim()).filter(Boolean);
+
+    const readiness = calculateReadiness({
+      ...student,
+      cgpa: Number(form.cgpa) || 0,
+      projects: Number(form.projects) || 0,
+      internships: Number(form.internships) || 0,
+      backlogs: Number(form.backlogs) || 0,
+      skills: parsedSkills,
+      certifications: parsedCertifications,
+      aptitude_score: Number(form.aptitude_score) || 0,
+      communication_score: Number(form.communication_score) || 0,
+      resume_quality: Number(form.resume_quality) || 0,
+      interview_readiness: Number(form.interview_readiness) || 0,
+      graduation_year: form.graduation_year ? Number(form.graduation_year) : null,
+      phone: form.phone || null,
+      address: form.address || null,
+      resume_url: form.resume_url || null,
+      linkedin_url: form.linkedin_url || null,
+      github_url: form.github_url || null,
+      resume_text: form.resume_text || null,
+    });
+
+    const { error: updateError } = await supabase.from('students').update({
+      name: form.name,
+      email: form.email,
+      roll_number: form.roll_number || null,
+      branch: form.branch || null,
+      phone: form.phone || null,
+      graduation_year: form.graduation_year ? Number(form.graduation_year) : null,
+      cgpa: Number(form.cgpa) || 0,
+      projects: Number(form.projects) || 0,
+      internships: Number(form.internships) || 0,
+      backlogs: Number(form.backlogs) || 0,
+      skills: parsedSkills,
+      certifications: parsedCertifications,
+      aptitude_score: Number(form.aptitude_score) || 0,
+      communication_score: Number(form.communication_score) || 0,
+      resume_quality: Number(form.resume_quality) || 0,
+      interview_readiness: Number(form.interview_readiness) || 0,
+      resume_url: form.resume_url || null,
+      linkedin_url: form.linkedin_url || null,
+      github_url: form.github_url || null,
+      address: form.address || null,
+      resume_text: form.resume_text || null,
+      risk_level: readiness.riskLevel,
+    }).eq('id', student.id);
+
     if (updateError) { setError(updateError.message); setSaving(false); return; }
     onSaved();
   }
-  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
-  return <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0 bg-black/80" /><form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4"><div className="flex items-center justify-between"><h3 className="text-xl font-bold text-white">Edit student profile</h3><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div><div className="grid sm:grid-cols-2 gap-3">{fields.map(([key, label, type]) => <label key={key} className="text-sm text-gray-400">{label}<input required={key === 'name' || key === 'email'} type={type} value={form[key]} onChange={e => update(key, e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>)}</div><label className="block text-sm text-gray-400">Address<textarea value={form.address} onChange={e => update('address', e.target.value)} rows={2} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Resume details<textarea value={form.resume_text} onChange={e => update('resume_text', e.target.value)} rows={4} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>{error && <p className="text-sm text-red-400">{error}</p>}<div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? 'Saving...' : 'Save changes'}</button></div></form></div>;
+  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
+  return <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0 bg-black/80" /><form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4"><div className="flex items-center justify-between"><h3 className="text-xl font-bold text-white">Edit student profile</h3><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div><div className="grid sm:grid-cols-2 gap-3">{fields.map(([key, label, type]) => <label key={key} className="text-sm text-gray-400">{label}<input required={key === 'name' || key === 'email'} type={type} value={form[key]} onChange={e => update(key, e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>)}</div><div className="space-y-4"><label className="block text-sm text-gray-400">Skills (comma separated)<input value={form.skills} onChange={e => update('skills', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Certifications (comma separated)<input value={form.certifications} onChange={e => update('certifications', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div><label className="block text-sm text-gray-400">Address<textarea value={form.address} onChange={e => update('address', e.target.value)} rows={2} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Resume details<textarea value={form.resume_text} onChange={e => update('resume_text', e.target.value)} rows={4} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>{error && <p className="text-sm text-red-400">{error}</p>}<div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? 'Saving...' : 'Save changes'}</button></div></form></div>;
 }
 
 function DeleteStudentModal({ student, onClose, onDeleted }: { student: Student; onClose: () => void; onDeleted: () => void }) {
@@ -391,7 +463,29 @@ function DeleteStudentModal({ student, onClose, onDeleted }: { student: Student;
 }
 
 function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ name: '', email: '', roll_number: '', branch: '', phone: '', graduation_year: '', cgpa: '', resume_url: '', linkedin_url: '', github_url: '', address: '', resume_text: '' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    roll_number: '',
+    branch: '',
+    phone: '',
+    graduation_year: '',
+    cgpa: '',
+    projects: '',
+    internships: '',
+    backlogs: '',
+    aptitude_score: '',
+    communication_score: '',
+    resume_quality: '',
+    interview_readiness: '',
+    skills: '',
+    certifications: '',
+    resume_url: '',
+    linkedin_url: '',
+    github_url: '',
+    address: '',
+    resume_text: '',
+  });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const update = (key: keyof typeof form, value: string) => setForm(current => ({ ...current, [key]: value }));
@@ -401,13 +495,75 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
     setSaving(true);
     setError('');
 
-    const { error: insertError } = await dbService.addStudent({
-      ...form,
+    const parsedSkills = form.skills.split(',').map(s => s.trim()).filter(Boolean);
+    const parsedCertifications = form.certifications.split(',').map(s => s.trim()).filter(Boolean);
+
+    const readiness = calculateReadiness({
+      id: '',
+      name: form.name,
+      email: form.email,
+      roll_number: form.roll_number || null,
+      branch: form.branch || null,
       cgpa: Number(form.cgpa) || 0,
-      graduation_year: form.graduation_year ? Number(form.graduation_year) : null,
-      skills: [],
-      certifications: [],
+      skills: parsedSkills,
       skill_levels: {},
+      projects: Number(form.projects) || 0,
+      internships: Number(form.internships) || 0,
+      backlogs: Number(form.backlogs) || 0,
+      certifications: parsedCertifications,
+      aptitude_score: Number(form.aptitude_score) || 0,
+      communication_score: Number(form.communication_score) || 0,
+      resume_quality: Number(form.resume_quality) || 0,
+      interview_readiness: Number(form.interview_readiness) || 0,
+      status: 'unplaced',
+      risk_level: 'low',
+      placed_company: null,
+      placed_package: null,
+      phone: form.phone || null,
+      date_of_birth: null,
+      gender: null,
+      address: form.address || null,
+      graduation_year: form.graduation_year ? Number(form.graduation_year) : null,
+      linkedin_url: form.linkedin_url || null,
+      github_url: form.github_url || null,
+      resume_url: form.resume_url || null,
+      resume_text: form.resume_text || null,
+      email_verified: false,
+      email_verification_sent_at: null,
+      created_at: new Date().toISOString(),
+    } as Student);
+
+    const { error: insertError } = await dbService.addStudent({
+      name: form.name,
+      email: form.email,
+      roll_number: form.roll_number || null,
+      branch: form.branch || null,
+      cgpa: Number(form.cgpa) || 0,
+      projects: Number(form.projects) || 0,
+      internships: Number(form.internships) || 0,
+      backlogs: Number(form.backlogs) || 0,
+      skills: parsedSkills,
+      skill_levels: {},
+      certifications: parsedCertifications,
+      aptitude_score: Number(form.aptitude_score) || 0,
+      communication_score: Number(form.communication_score) || 0,
+      resume_quality: Number(form.resume_quality) || 0,
+      interview_readiness: Number(form.interview_readiness) || 0,
+      status: 'unplaced',
+      risk_level: readiness.riskLevel,
+      placed_company: null,
+      placed_package: null,
+      phone: form.phone || null,
+      date_of_birth: null,
+      gender: null,
+      address: form.address || null,
+      graduation_year: form.graduation_year ? Number(form.graduation_year) : null,
+      linkedin_url: form.linkedin_url || null,
+      github_url: form.github_url || null,
+      resume_url: form.resume_url || null,
+      resume_text: form.resume_text || null,
+      email_verified: false,
+      email_verification_sent_at: null,
     });
 
     if (insertError) {
@@ -419,13 +575,14 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
     setSaving(false);
   }
 
-  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
+  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
 
   return (
     <Modal title="Add student" onClose={onClose}>
       <form onSubmit={save} className="space-y-4">
         <p className="text-sm text-gray-500 -mt-1">Store the student profile and Gmail used for placement communication.</p>
         <div className="grid sm:grid-cols-2 gap-3">{fields.map(([key, label, type]) => <label key={key} className="text-sm text-gray-400">{label}<input required={key === 'name' || key === 'email'} type={type} value={form[key]} onChange={e => update(key, e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>)}</div>
+        <div className="space-y-4"><label className="block text-sm text-gray-400">Skills (comma separated)<input value={form.skills} onChange={e => update('skills', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Certifications (comma separated)<input value={form.certifications} onChange={e => update('certifications', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
         <label className="block text-sm text-gray-400">Address<textarea value={form.address} onChange={e => update('address', e.target.value)} rows={2} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>
         <label className="block text-sm text-gray-400">Resume details<textarea value={form.resume_text} onChange={e => update('resume_text', e.target.value)} rows={4} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" placeholder="Education, experience, projects, skills..." /></label>
         {error && <p className="text-sm text-red-400">{error}</p>}

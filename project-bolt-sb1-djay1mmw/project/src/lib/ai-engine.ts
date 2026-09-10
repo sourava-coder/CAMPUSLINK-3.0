@@ -23,6 +23,14 @@ export type MatchResult = {
 const SKILL_WEIGHT = 10;
 const MAX_SKILL_SCORE = 50;
 
+function normalizeSkillName(skill: string): string {
+  return skill
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 export function calculateFitScore(student: Student, job: Job): MatchResult {
   const explanation: string[] = [];
   const breakdown: FitBreakdown = {
@@ -48,15 +56,30 @@ export function calculateFitScore(student: Student, job: Job): MatchResult {
   // Skills matching
   const matchedSkills: string[] = [];
   const missingSkills: string[] = [];
+  const matchedSkillKeys = new Set<string>();
+  const normalizedStudentSkills = new Map<string, string>();
   let skillScore = 0;
 
+  for (const skill of student.skills || []) {
+    if (!skill) continue;
+    normalizedStudentSkills.set(normalizeSkillName(skill), skill);
+  }
+
+  const skillLevels = Object.fromEntries(
+    Object.entries(student.skill_levels || {}).map(([skill, level]) => [normalizeSkillName(skill), level])
+  );
+
   for (const req of job.required_skills) {
-    if (student.skills.includes(req)) {
-      const level = student.skill_levels[req] || 'intermediate';
+    const normalizedReq = normalizeSkillName(req);
+    const hasSkill = normalizedStudentSkills.has(normalizedReq);
+
+    if (hasSkill) {
+      const level = skillLevels[normalizedReq] || 'intermediate';
       const levelMultiplier = level === 'advanced' ? 1.0 : level === 'intermediate' ? 0.7 : 0.4;
       const points = Math.round(SKILL_WEIGHT * levelMultiplier);
       skillScore += points;
       matchedSkills.push(req);
+      matchedSkillKeys.add(normalizedReq);
       explanation.push(`${req} (${level}) +${points}`);
     } else {
       missingSkills.push(req);
@@ -65,12 +88,14 @@ export function calculateFitScore(student: Student, job: Job): MatchResult {
   }
 
   for (const pref of job.preferred_skills) {
-    if (student.skills.includes(pref) && !matchedSkills.includes(pref)) {
-      const level = student.skill_levels[pref] || 'intermediate';
+    const normalizedPref = normalizeSkillName(pref);
+    if (normalizedStudentSkills.has(normalizedPref) && !matchedSkillKeys.has(normalizedPref)) {
+      const level = skillLevels[normalizedPref] || 'intermediate';
       const levelMultiplier = level === 'advanced' ? 0.8 : level === 'intermediate' ? 0.5 : 0.3;
       const points = Math.round(SKILL_WEIGHT * levelMultiplier);
       skillScore += points;
       matchedSkills.push(pref);
+      matchedSkillKeys.add(normalizedPref);
       explanation.push(`${pref} (preferred, ${level}) +${points}`);
     }
   }

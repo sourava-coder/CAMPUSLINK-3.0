@@ -2,6 +2,88 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase, type Student, type Company, type Job, type Application, type Interview, type Offer, type Notification, type AdminSettings } from '@/lib/supabase';
 import { dbService } from '@/lib/db-service';
+import { calculateReadiness } from '@/lib/ai-engine';
+
+function inferCountFromResume(resumeText: string | null, patterns: RegExp[]): number {
+  if (!resumeText) return 0;
+
+  for (const pattern of patterns) {
+    const match = resumeText.match(pattern);
+    if (match) {
+      return Math.max(0, Number(match[1] || 0));
+    }
+  }
+
+  return 0;
+}
+
+function inferSkillsFromResume(resumeText: string | null): string[] {
+  if (!resumeText) return [];
+
+  const skillMatch = resumeText.match(/skill[s]?\s*[:\-]?\s*([^]+)/i);
+  const source = skillMatch ? skillMatch[1] : resumeText;
+
+  const extracted = source
+    .split(/[\n,]+/)
+    .map(part => part.trim().replace(/[.;]+$/, ''))
+    .filter(part => part && !/^\d+$/.test(part))
+    .map(part => part.replace(/^[\W_]+|[\W_]+$/g, ''))
+    .filter(part => part && part.length > 1)
+    .map(part => part.replace(/\s+/g, ' '));
+
+  const exclude = new Set([
+    'and', 'in', 'on', 'the', 'a', 'for', 'with', 'to', 'of', 'computer', 'science', 'experience', 'year',
+    'years', 'project', 'projects', 'complete', 'completed', 'btech', 'skill', 'skills', 'work'
+  ]);
+
+  return [...new Set(
+    extracted
+      .filter(item => !exclude.has(item.toLowerCase()))
+      .map(item => item.replace(/\s+/g, ' '))
+  )];
+}
+
+function normalizeStudent(student: any): Student {
+  const resumeText = typeof student.resume_text === 'string' ? student.resume_text : '';
+
+  const inferredSkills = Array.isArray(student.skills) && student.skills.length > 0
+    ? student.skills
+    : inferSkillsFromResume(resumeText);
+
+  const inferredProjects = Number(student.projects ?? 0) || inferCountFromResume(resumeText, [
+    /\b(\d+)\s+projects?\b/i,
+    /\b(\d+)\s+project\b/i,
+  ]);
+
+  const inferredInternships = Number(student.internships ?? 0) || inferCountFromResume(resumeText, [
+    /\b(\d+)\s+internships?\b/i,
+    /\b(\d+)\s+internship\b/i,
+    /\b(\d+)\s+industrial\s+training\b/i,
+    /\b(\d+)\s+training(?:s)?\b/i,
+  ]);
+
+  const normalizedSkills = inferredSkills;
+  const normalizedCertifications = Array.isArray(student.certifications) ? student.certifications : [];
+  const normalizedSkillLevels = student.skill_levels ?? {};
+  const normalizedStudent = {
+    ...student,
+    skills: normalizedSkills,
+    skill_levels: normalizedSkillLevels,
+    certifications: normalizedCertifications,
+    projects: inferredProjects,
+    internships: inferredInternships,
+    backlogs: Number(student.backlogs ?? 0),
+    aptitude_score: Number(student.aptitude_score ?? 0),
+    communication_score: Number(student.communication_score ?? 0),
+    resume_quality: Number(student.resume_quality ?? 0),
+    interview_readiness: Number(student.interview_readiness ?? 0),
+    cgpa: Number(student.cgpa ?? 0),
+    risk_level: 'low',
+  } as Student;
+
+  normalizedStudent.risk_level = calculateReadiness(normalizedStudent).riskLevel;
+  return normalizedStudent;
+}
 import {
   GraduationCap, LayoutDashboard, Users, Building2, Brain, Calendar,
   FileText, Bell, LogOut, Sparkles, Menu, X, Settings
@@ -58,7 +140,9 @@ export default function Dashboard() {
       dbService.getAdminSettings(),
     ]);
 
-    setStudents(studentsData || []);
+    const normalizedStudents = (studentsData || []).map(normalizeStudent);
+
+    setStudents(normalizedStudents);
     setCompanies(companiesData || []);
     setJobs(jobsData || []);
     setApplications(applicationsData || []);

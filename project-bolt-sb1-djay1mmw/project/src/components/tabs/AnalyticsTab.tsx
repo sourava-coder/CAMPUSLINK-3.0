@@ -14,8 +14,8 @@ export default function AnalyticsTab({ students, jobs, applications, offers }: P
   const placementRate = students.length > 0 ? Math.round((placed.length / students.length) * 100) : 0;
   const avgPackage = placed.length > 0 ? (placed.reduce((a, s) => a + (s.placed_package || 0), 0) / placed.length).toFixed(1) : '0';
   const highestPackage = Math.max(...students.map(s => s.placed_package || 0), 0);
-  const atRisk = students.filter(s => s.risk_level === 'high');
-  const mediumRisk = students.filter(s => s.risk_level === 'medium');
+  const atRisk = students.filter(s => calculateReadiness(s).riskLevel === 'high');
+  const mediumRisk = students.filter(s => calculateReadiness(s).riskLevel === 'medium');
 
   // Branch-wise placement
   const branchData = Object.entries(

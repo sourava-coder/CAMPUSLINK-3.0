@@ -1,4 +1,5 @@
 import type { Student, Company, Job, Application, Interview, Offer, Notification } from '@/lib/supabase';
+import { calculateReadiness } from '@/lib/ai-engine';
 import { Users, Building2, Briefcase, TrendingUp, AlertTriangle, Calendar, FileText, Bell, ArrowRight, Trophy, Target, Clock } from 'lucide-react';
 
 type Props = {
@@ -17,7 +18,10 @@ export default function OverviewTab({ students, companies, jobs, applications, i
   const placementRate = students.length > 0 ? Math.round((placed.length / students.length) * 100) : 0;
   const avgPackage = placed.length > 0 ? (placed.reduce((a, s) => a + (s.placed_package || 0), 0) / placed.length).toFixed(1) : '0';
   const highestPackage = Math.max(...students.map(s => s.placed_package || 0), 0);
-  const atRisk = students.filter(s => s.risk_level === 'high' || s.risk_level === 'medium');
+  const atRisk = students.filter(s => {
+    const readiness = calculateReadiness(s);
+    return readiness.riskLevel === 'high' || readiness.riskLevel === 'medium';
+  });
   const upcomingInterviews = interviews.filter(i => i.status === 'scheduled' && new Date(i.scheduled_at) > new Date());
   const pendingOffers = offers.filter(o => o.status === 'pending');
   const unsentNotifications = notifications.filter(n => !n.sent);
