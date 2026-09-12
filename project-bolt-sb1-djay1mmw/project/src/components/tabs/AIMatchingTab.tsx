@@ -223,15 +223,44 @@ function MatchDetail({ student, job, onClose }: { student: Student; job: Job; on
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-full max-w-lg bg-zinc-950 border-l border-yellow-400/20 h-full overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-10">
-          <h3 className="text-lg font-bold text-white">Explainable Fit Score</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 512,
+          height: '100vh',
+          marginLeft: 'auto',
+          background: '#09090b',
+          borderLeft: '1px solid rgba(250, 204, 21, 0.2)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.55)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: '#09090b',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            padding: '16px 24px',
+          }}
+        >
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>Explainable Fit Score</h3>
+          <button onClick={onClose} style={{ color: '#9ca3af' }}>
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* Score */}
           <div className="text-center">
             <div className={`inline-flex items-center justify-center w-32 h-32 rounded-full border-4 ${
