@@ -169,14 +169,24 @@ export default function Dashboard() {
     <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
       <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-950 border-r border-yellow-400/10 z-50 transition-transform campuslink-sidebar-in ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center gap-3 px-6 h-16 border-b border-yellow-400/10">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0 campuslink-logo-glow">
-            <GraduationCap className="w-6 h-6 text-black" />
+        <div className="flex items-center justify-between gap-3 px-6 h-16 border-b border-yellow-400/10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0 campuslink-logo-glow">
+              <GraduationCap className="w-6 h-6 text-black" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-black text-yellow-400 tracking-tight">CAMPUSLINK</h1>
+              <p className="text-yellow-400/40 text-[10px] font-mono">AI PLACEMENT OS</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black text-yellow-400 tracking-tight">CAMPUSLINK</h1>
-            <p className="text-yellow-400/40 text-[10px] font-mono">AI PLACEMENT OS</p>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden rounded-md p-1 text-gray-400 hover:text-white"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <nav className="px-3 py-4 space-y-1 overflow-y-auto h-[calc(100vh-4rem-4rem)]">
