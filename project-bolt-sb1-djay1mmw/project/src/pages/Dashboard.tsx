@@ -220,7 +220,12 @@ export default function Dashboard() {
         {/* Top bar */}
         <header className="sticky top-0 z-30 min-h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-yellow-400/10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-400 hover:text-white">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="block lg:hidden rounded-md border border-transparent p-1 text-gray-400 hover:text-white hover:border-yellow-400/20"
+              aria-label="Open menu"
+            >
               <Menu className="w-6 h-6" />
             </button>
             <h2 className="text-base sm:text-lg font-semibold text-white truncate">
