@@ -118,18 +118,6 @@ export default function Dashboard() {
     loadAllData();
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) {
-        setSidebarOpen(false);
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   async function loadAllData() {
     setLoading(true);
@@ -181,7 +169,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-950 border-r border-yellow-400/10 z-50 transition-transform campuslink-sidebar-in ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-950 border-r border-yellow-400/10 z-50 transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="flex items-center justify-between gap-3 px-6 h-16 border-b border-yellow-400/10">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0 campuslink-logo-glow">
