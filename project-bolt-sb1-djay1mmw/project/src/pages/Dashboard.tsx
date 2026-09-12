@@ -182,7 +182,7 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden rounded-md p-1 text-gray-400 hover:text-white"
+            className="lg:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-yellow-400/20 bg-zinc-900 text-gray-300 hover:text-white hover:bg-zinc-800 shadow-sm"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
