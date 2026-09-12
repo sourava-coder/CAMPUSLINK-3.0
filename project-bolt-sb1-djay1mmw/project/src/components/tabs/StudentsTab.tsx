@@ -594,14 +594,15 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70" />
-      <div className="relative w-full max-w-2xl bg-zinc-950 border border-yellow-400/20 rounded-2xl my-8" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70" onClick={onClose}>
+      <div className="flex min-h-full items-start justify-center p-4 sm:p-6">
+        <div className="relative w-full max-w-2xl bg-zinc-950 border border-yellow-400/20 rounded-2xl my-4 sm:my-8" onClick={e => e.stopPropagation()}>
+          <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">{title}</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="p-6 max-h-[calc(100vh-8rem)] overflow-y-auto">{children}</div>
         </div>
-        <div className="p-6 max-h-[70vh] overflow-y-auto">{children}</div>
       </div>
     </div>
   );
