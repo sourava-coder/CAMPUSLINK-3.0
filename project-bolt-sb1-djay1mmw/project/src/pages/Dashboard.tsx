@@ -216,18 +216,18 @@ export default function Dashboard() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-yellow-400/10 flex items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 min-h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-yellow-400/10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-3 min-w-0">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-400 hover:text-white">
               <Menu className="w-6 h-6" />
             </button>
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-base sm:text-lg font-semibold text-white truncate">
               {navItems.find(n => n.id === activeTab)?.label}
             </h2>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
             <button
               type="button"
               onClick={loadAllData}
@@ -251,7 +251,7 @@ export default function Dashboard() {
         </header>
 
         {/* Tab content */}
-        <div key={activeTab} className="p-6 campuslink-content-in">
+        <div key={activeTab} className="p-4 sm:p-6 campuslink-content-in">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-10 h-10 border-4 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />

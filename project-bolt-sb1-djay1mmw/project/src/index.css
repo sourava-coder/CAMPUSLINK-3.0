@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
 @keyframes campuslink-sidebar-in {
 	from {
 		opacity: 0;

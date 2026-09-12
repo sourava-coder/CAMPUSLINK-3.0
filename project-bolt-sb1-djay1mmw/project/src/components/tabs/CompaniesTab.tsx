@@ -20,19 +20,19 @@ export default function CompaniesTab({ companies, jobs, students, onDataChanged 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-gray-400 text-sm">{companies.length} companies · {jobs.length} active jobs</p>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
             onClick={() => setShowAddCompany(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-yellow-400 text-black font-medium rounded-lg text-sm hover:bg-yellow-300 transition-all"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-yellow-400 text-black font-medium rounded-lg text-sm hover:bg-yellow-300 transition-all sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             Add Company
           </button>
           <button
             onClick={() => setShowAddJob(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 text-white font-medium rounded-lg text-sm hover:border-yellow-400/30 transition-all"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 text-white font-medium rounded-lg text-sm hover:border-yellow-400/30 transition-all sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             Post Job

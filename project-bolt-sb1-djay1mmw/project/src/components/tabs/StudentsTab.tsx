@@ -34,8 +34,8 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
   return (
     <div className="space-y-4">
       {/* Search & filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
@@ -45,7 +45,7 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
             className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-yellow-400/50"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-1 lg:justify-end">
           {[
             { id: 'all', label: 'All' },
             { id: 'placed', label: 'Placed' },
@@ -65,7 +65,7 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
             </button>
           ))}
         </div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-yellow-400 text-black text-sm font-bold hover:bg-yellow-300">
+        <button onClick={() => setShowCreate(true)} className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-yellow-400 text-black text-sm font-bold hover:bg-yellow-300 lg:w-auto">
           <Plus className="w-4 h-4" /> Add student
         </button>
       </div>
