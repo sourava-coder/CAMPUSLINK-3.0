@@ -142,14 +142,15 @@ export default function Dashboard() {
     ]);
 
     const normalizedStudents = (studentsData || []).map(normalizeStudent);
+    const visibleStudentIds = new Set(normalizedStudents.map(student => student.id));
 
     setStudents(normalizedStudents);
     setCompanies(companiesData || []);
     setJobs(jobsData || []);
-    setApplications(applicationsData || []);
-    setInterviews(interviewsData || []);
-    setOffers(offersData || []);
-    setNotifications(notifData || []);
+    setApplications((applicationsData || []).filter(application => visibleStudentIds.has(application.student_id)));
+    setInterviews((interviewsData || []).filter(interview => visibleStudentIds.has(interview.student_id)));
+    setOffers((offersData || []).filter(offer => visibleStudentIds.has(offer.student_id)));
+    setNotifications((notifData || []).filter(notification => visibleStudentIds.has(notification.student_id)));
     setSettings(settingsData);
     setLoading(false);
   }
@@ -275,11 +276,11 @@ export default function Dashboard() {
           ) : (
             <>
               {activeTab === 'overview' && <OverviewTab students={students} companies={companies} jobs={jobs} applications={applications} interviews={interviews} offers={offers} notifications={notifications} onNavigate={setActiveTab as (t: string) => void} />}
-              {activeTab === 'students' && <StudentsTab students={students} jobs={jobs} onDataChanged={loadAllData} />}
+              {activeTab === 'students' && <StudentsTab students={students} jobs={jobs} settings={settings} onDataChanged={loadAllData} />}
               {activeTab === 'companies' && <CompaniesTab companies={companies} jobs={jobs} students={students} onDataChanged={loadAllData} />}
               {activeTab === 'matching' && <AIMatchingTab students={students} jobs={jobs} applications={applications} />}
-              {activeTab === 'scheduler' && <SchedulerTab interviews={interviews} students={students} onDataChanged={loadAllData} />}
-              {activeTab === 'offers' && <OffersTab offers={offers} students={students} jobs={jobs} applications={applications} />}
+              {activeTab === 'scheduler' && <SchedulerTab interviews={interviews} students={students} settings={settings} onDataChanged={loadAllData} />}
+              {activeTab === 'offers' && <OffersTab offers={offers} students={students} jobs={jobs} applications={applications} settings={settings} onDataChanged={loadAllData} />}
               {activeTab === 'analytics' && <AnalyticsTab students={students} jobs={jobs} applications={applications} offers={offers} />}
               {activeTab === 'copilot' && <CopilotTab students={students} jobs={jobs} applications={applications} />}
               {activeTab === 'settings' && <SettingsTab settings={settings} onSaved={loadAllData} />}

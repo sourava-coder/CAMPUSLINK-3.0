@@ -7,13 +7,25 @@ import { supabase } from './supabase';
  * ensuring complete data isolation between users
  */
 
+async function getCurrentAdminUserId() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  return sessionData?.session?.user?.id ?? null;
+}
+
 export const dbService = {
   // ===== STUDENTS =====
   
   async getStudents() {
+    const userId = await getCurrentAdminUserId();
+
+    if (!userId) {
+      return { data: [], error: null };
+    }
+
     const { data, error } = await supabase
       .from('students')
       .select('*')
+      .eq('admin_user_id', userId)
       .order('created_at', { ascending: false });
     
     return { data, error };
@@ -57,9 +69,16 @@ export const dbService = {
   // ===== COMPANIES =====
 
   async getCompanies() {
+    const userId = await getCurrentAdminUserId();
+
+    if (!userId) {
+      return { data: [], error: null };
+    }
+
     const { data, error } = await supabase
       .from('companies')
       .select('*')
+      .eq('admin_user_id', userId)
       .order('created_at', { ascending: false });
 
     return { data, error };
@@ -103,9 +122,16 @@ export const dbService = {
   // ===== JOBS =====
 
   async getJobs() {
+    const userId = await getCurrentAdminUserId();
+
+    if (!userId) {
+      return { data: [], error: null };
+    }
+
     const { data, error } = await supabase
       .from('jobs')
       .select('*, company:companies(*)')
+      .eq('admin_user_id', userId)
       .order('created_at', { ascending: false });
 
     return { data, error };

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { sendStudentEmail, supabase, type Interview, type Student } from '@/lib/supabase';
-import { Calendar, Clock, AlertTriangle, MapPin, CheckCircle2, X, ArrowRight, Mail, Plus, Pencil, Trash2 } from 'lucide-react';
+import { sendStudentEmail, buildWhatsAppLink, supabase, type Interview, type Student, type AdminSettings } from '@/lib/supabase';
+import { Calendar, Clock, AlertTriangle, MapPin, CheckCircle2, X, ArrowRight, Mail, Plus, Pencil, Trash2, Send } from 'lucide-react';
 
 type Props = {
   interviews: Interview[];
   students: Student[];
+  settings?: AdminSettings | null;
   onDataChanged?: () => void;
 };
 
@@ -15,7 +16,7 @@ type Conflict = {
   overlapMinutes: number;
 };
 
-export default function SchedulerTab({ interviews, students, onDataChanged }: Props) {
+export default function SchedulerTab({ interviews, students, settings, onDataChanged }: Props) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -41,13 +42,29 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
     onDataChanged?.();
   }
 
-  async function sendSchedule(interview: Interview, student: Student) {
+  async function sendSchedule(interview: Interview, student: Student, channel: 'email' | 'whatsapp' = 'email') {
     setSendingId(interview.id); setNotice('');
+    const collegeName = settings?.college_name || 'CampusLink Placement Cell';
     const date = new Date(interview.scheduled_at).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' });
+    const message = `Hello ${student.name},\n\nYour ${collegeName} placement schedule is confirmed.\n\nType: ${interview.type}\nDate and time: ${date}\nDuration: ${interview.duration_minutes} minutes\nVenue / link: ${interview.venue || 'To be shared by the placement cell'}\nRound: ${interview.round}\n\nPlease be available 10 minutes early and keep your resume ready.\n\nRegards,\n${collegeName}`;
+
+    if (channel === 'whatsapp') {
+      const whatsappLink = buildWhatsAppLink(student.phone, message);
+      if (!whatsappLink) {
+        setNotice('WhatsApp unavailable: add a phone number for this student first.');
+        setSendingId(null);
+        return;
+      }
+      window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+      setNotice(`WhatsApp opened for ${student.name}.`);
+      setSendingId(null);
+      return;
+    }
+
     const result = await sendStudentEmail({
       to: student.email,
       subject: `Interview schedule: ${interview.type} round ${interview.round}`,
-      body: `Hello ${student.name},\n\nYour CampusLink placement schedule is confirmed.\n\nType: ${interview.type}\nDate and time: ${date}\nDuration: ${interview.duration_minutes} minutes\nVenue / link: ${interview.venue || 'To be shared by the placement cell'}\nRound: ${interview.round}\n\nPlease be available 10 minutes early and keep your resume ready.\n\nRegards,\nCampusLink Placement Cell`,
+      body: message,
       type: 'interview_schedule',
       studentId: student.id,
     });
@@ -91,7 +108,7 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-white">Interview and test schedule</h3>
-          <p className="text-sm text-gray-500">Create and send schedules to student Gmail addresses.</p>
+          <p className="text-sm text-gray-500">Create and send schedules to students through Gmail and WhatsApp.</p>
         </div>
         <button onClick={() => setShowScheduleForm(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-yellow-400 text-black text-sm font-bold hover:bg-yellow-300">
           <Plus className="w-4 h-4" /> Schedule
@@ -194,9 +211,16 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
                     {new Date(interview.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                {student && <button onClick={() => sendSchedule(interview, student)} disabled={sendingId === interview.id} title="Send schedule by email" className="p-2 text-yellow-400 hover:bg-yellow-400/10 rounded-lg disabled:opacity-50">
-                  <Mail className="w-4 h-4" />
-                </button>}
+                {student && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => sendSchedule(interview, student, 'email')} disabled={sendingId === interview.id} title="Send schedule by email" className="p-2 text-yellow-400 hover:bg-yellow-400/10 rounded-lg disabled:opacity-50">
+                      <Mail className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => sendSchedule(interview, student, 'whatsapp')} disabled={sendingId === interview.id || !student.phone} title="Send schedule by WhatsApp" className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg disabled:opacity-50">
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
                 <button onClick={() => { setEditingInterview(interview); setShowScheduleForm(false); }} title="Edit schedule" className="p-2 text-gray-400 hover:bg-yellow-400/10 hover:text-yellow-400 rounded-lg">
                   <Pencil className="w-4 h-4" />
                 </button>
@@ -212,6 +236,7 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
       </div>
       {(showScheduleForm || editingInterview) && <ScheduleForm
         students={students}
+        settings={settings}
         initialInterview={editingInterview || undefined}
         onClose={closeScheduleForm}
         onCreated={() => { closeScheduleForm(); onDataChanged?.(); }}
@@ -220,7 +245,7 @@ export default function SchedulerTab({ interviews, students, onDataChanged }: Pr
   );
 }
 
-function ScheduleForm({ students, onClose, onCreated, initialInterview }: { students: Student[]; onClose: () => void; onCreated: () => void; initialInterview?: Interview }) {
+function ScheduleForm({ students, settings, onClose, onCreated, initialInterview }: { students: Student[]; settings?: AdminSettings | null; onClose: () => void; onCreated: () => void; initialInterview?: Interview }) {
   const initialForm = {
     student_id: initialInterview?.student_id || students[0]?.id || '',
     type: initialInterview?.type || 'interview',
@@ -234,9 +259,11 @@ function ScheduleForm({ students, onClose, onCreated, initialInterview }: { stud
     round: initialInterview?.round?.toString() || '1',
   };
 
+  const collegeName = settings?.college_name || 'CampusLink Placement Cell';
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [error, setError] = useState('');
   const update = (key: keyof typeof form, value: string) => setForm(current => ({ ...current, [key]: value }));
 
@@ -265,16 +292,27 @@ function ScheduleForm({ students, onClose, onCreated, initialInterview }: { stud
 
     if (result.error) { setError(result.error.message); setSaving(false); return; }
 
-    if (sendEmail && student && result.data) {
+    if (student && result.data) {
       const date = new Date(form.scheduled_at).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' });
-      const emailResult = await sendStudentEmail({
-        to: student.email,
-        subject: `CampusLink ${form.type} schedule`,
-        body: `Hello ${student.name},\n\nYour ${form.type} is scheduled.\n\nDate and time: ${date}\nDuration: ${form.duration_minutes} minutes\nVenue / link: ${form.venue || 'To be shared by the placement cell'}\nRound: ${form.round}\n\nPlease be available 10 minutes early.\n\nRegards,\nCampusLink Placement Cell`,
-        type: 'interview_schedule',
-        studentId: student.id,
-      });
-      if (emailResult.error) { setError(`Schedule saved, but email failed: ${emailResult.error}`); setSaving(false); return; }
+      const message = `Hello ${student.name},\n\nYour ${form.type} is scheduled.\n\nDate and time: ${date}\nDuration: ${form.duration_minutes} minutes\nVenue / link: ${form.venue || 'To be shared by the placement cell'}\nRound: ${form.round}\n\nPlease be available 10 minutes early.\n\nRegards,\n${collegeName}`;
+
+      if (sendEmail) {
+        const emailResult = await sendStudentEmail({
+          to: student.email,
+          subject: `CampusLink ${form.type} schedule`,
+          body: message,
+          type: 'interview_schedule',
+          studentId: student.id,
+        });
+        if (emailResult.error) { setError(`Schedule saved, but email failed: ${emailResult.error}`); setSaving(false); return; }
+      }
+
+      if (sendWhatsApp && student.phone) {
+        const whatsappLink = buildWhatsAppLink(student.phone, message);
+        if (whatsappLink) {
+          window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+        }
+      }
     }
     onCreated();
   }
@@ -287,7 +325,10 @@ function ScheduleForm({ students, onClose, onCreated, initialInterview }: { stud
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-400">Type<select value={form.type} onChange={e => update('type', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"><option value="interview">Interview</option><option value="test">Test</option><option value="assessment">Assessment</option><option value="other">Other</option></select></label><label className="block text-sm text-gray-400">Round<input min="1" type="number" value={form.round} onChange={e => update('round', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-400">Date and time<input required type="datetime-local" value={form.scheduled_at} onChange={e => update('scheduled_at', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Duration (minutes)<input min="1" required type="number" value={form.duration_minutes} onChange={e => update('duration_minutes', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
       <label className="block text-sm text-gray-400">Venue or meeting link<input value={form.venue} onChange={e => update('venue', e.target.value)} placeholder="Room 204 or https://meet..." className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>
-      <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="accent-yellow-400" /> Send schedule to student Gmail now</label>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={sendEmail} onChange={e => setSendEmail(e.target.checked)} className="accent-yellow-400" /> Send schedule to student Gmail now</label>
+        <label className="flex items-center gap-2 text-sm text-gray-300"><input type="checkbox" checked={sendWhatsApp} onChange={e => setSendWhatsApp(e.target.checked)} className="accent-green-400" /> Send schedule to student WhatsApp now</label>
+      </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving || !students.length} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? (initialInterview ? 'Updating...' : 'Saving...') : (initialInterview ? 'Update schedule' : 'Save schedule')}</button></div>
     </form>

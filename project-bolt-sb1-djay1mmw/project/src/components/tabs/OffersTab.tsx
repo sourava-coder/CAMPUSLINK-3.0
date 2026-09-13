@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Offer, Student, Job, Application } from '@/lib/supabase';
-import { supabase } from '@/lib/supabase';
+import type { Offer, Student, Job, Application, AdminSettings } from '@/lib/supabase';
+import { supabase, buildWhatsAppLink } from '@/lib/supabase';
 import { FileText, Send, CheckCircle2, Clock, X, Mail, DollarSign, Building2 } from 'lucide-react';
 
 type Props = {
@@ -8,19 +8,75 @@ type Props = {
   students: Student[];
   jobs: Job[];
   applications: Application[];
+  settings?: AdminSettings | null;
+  onDataChanged?: () => void;
 };
 
-export default function OffersTab({ offers, students, jobs, applications }: Props) {
+export default function OffersTab({ offers, students, jobs, applications, settings, onDataChanged }: Props) {
   const [showSendOffer, setShowSendOffer] = useState(false);
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSendOffer = async (offer: Offer) => {
+  const handleAcceptOffer = async (offer: Offer) => {
+    const { error } = await supabase.from('offers')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', offer.id);
+
+    if (error) {
+      setSuccess(`Failed to mark accepted: ${error.message}`);
+      return;
+    }
+
+    setSuccess(`Offer marked as accepted for ${students.find(s => s.id === offer.student_id)?.name || 'the student'}.`);
+    onDataChanged?.();
+  };
+
+  const handleDeleteOffer = async (offer: Offer) => {
+    if (!window.confirm('Delete this offer?')) return;
+
+    const { error } = await supabase.from('offers').delete().eq('id', offer.id);
+
+    if (error) {
+      setSuccess(`Failed to delete offer: ${error.message}`);
+      return;
+    }
+
+    setSuccess(`Offer deleted successfully.`);
+    onDataChanged?.();
+  };
+
+  const handleSendOffer = async (offer: Offer, channel: 'email' | 'whatsapp' = 'email') => {
     setSending(true);
     const student = students.find(s => s.id === offer.student_id);
     if (!student) return;
 
     try {
+      if (channel === 'whatsapp') {
+        const whatsappLink = buildWhatsAppLink(student.phone, offer.offer_letter_text);
+
+        if (!whatsappLink) {
+          setSuccess(`WhatsApp unavailable for ${student.name}: add a phone number first.`);
+          setSending(false);
+          return;
+        }
+
+        window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+        const { error: updateError } = await supabase.from('offers')
+          .update({ status: 'sent', sent_at: new Date().toISOString() })
+          .eq('id', offer.id);
+
+        if (updateError) {
+          setSuccess(`Offer opened in WhatsApp, but status update failed: ${updateError.message}`);
+          setSending(false);
+          return;
+        }
+
+        setSuccess(`Offer letter opened in WhatsApp for ${student.name}.`);
+        onDataChanged?.();
+        setSending(false);
+        return;
+      }
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
@@ -36,10 +92,16 @@ export default function OffersTab({ offers, students, jobs, applications }: Prop
       });
 
       if (response.ok) {
-        await supabase.from('offers')
+        const { error: updateError } = await supabase.from('offers')
           .update({ status: 'sent', sent_at: new Date().toISOString() })
           .eq('id', offer.id);
-        setSuccess(`Offer letter sent to ${student.name} at ${student.email}`);
+
+        if (updateError) {
+          setSuccess(`Offer sent, but status update failed: ${updateError.message}`);
+        } else {
+          setSuccess(`Offer letter sent to ${student.name} at ${student.email}`);
+          onDataChanged?.();
+        }
       }
     } catch {
       setSuccess(null);
@@ -97,14 +159,24 @@ export default function OffersTab({ offers, students, jobs, applications }: Prop
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-sm text-yellow-400 font-bold">₹{offer.package_lpa}L</span>
                         {col.status === 'pending' && (
-                          <button
-                            onClick={() => handleSendOffer(offer)}
-                            disabled={sending}
-                            className="flex items-center gap-1 px-2.5 py-1 bg-yellow-400/10 text-yellow-400 text-xs rounded-lg hover:bg-yellow-400/20 disabled:opacity-50"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                            Send
-                          </button>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleSendOffer(offer, 'email')}
+                              disabled={sending}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-yellow-400/10 text-yellow-400 text-xs rounded-lg hover:bg-yellow-400/20 disabled:opacity-50"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Email
+                            </button>
+                            <button
+                              onClick={() => handleSendOffer(offer, 'whatsapp')}
+                              disabled={sending || !student?.phone}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-green-500/10 text-green-400 text-xs rounded-lg hover:bg-green-500/20 disabled:opacity-50"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              WhatsApp
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -139,13 +211,47 @@ export default function OffersTab({ offers, students, jobs, applications }: Prop
                   {offer.status}
                 </span>
                 {offer.status === 'pending' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleSendOffer(offer, 'email')}
+                      disabled={sending}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-yellow-400 text-black text-xs font-medium rounded-lg hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      Email
+                    </button>
+                    <button
+                      onClick={() => handleSendOffer(offer, 'whatsapp')}
+                      disabled={sending || !student?.phone}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/30 text-xs font-medium rounded-lg hover:bg-green-500/20 disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      WhatsApp
+                    </button>
+                  </div>
+                )}
+                {offer.status === 'sent' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAcceptOffer(offer)}
+                      className="px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/30 text-xs font-medium rounded-lg hover:bg-green-500/20"
+                    >
+                      Mark accepted
+                    </button>
+                    <button
+                      onClick={() => handleDeleteOffer(offer)}
+                      className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-medium rounded-lg hover:bg-red-500/20"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+                {offer.status === 'accepted' && (
                   <button
-                    onClick={() => handleSendOffer(offer)}
-                    disabled={sending}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-yellow-400 text-black text-xs font-medium rounded-lg hover:bg-yellow-300 disabled:opacity-50"
+                    onClick={() => handleDeleteOffer(offer)}
+                    className="px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-medium rounded-lg hover:bg-red-500/20"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    Send Email
+                    Delete
                   </button>
                 )}
               </div>
@@ -160,25 +266,29 @@ export default function OffersTab({ offers, students, jobs, applications }: Prop
           students={students}
           jobs={jobs}
           applications={applications}
+          settings={settings}
           onClose={() => setShowSendOffer(false)}
-          onSent={(msg) => { setSuccess(msg); setShowSendOffer(false); }}
+          onSent={(msg) => { setSuccess(msg); setShowSendOffer(false); onDataChanged?.(); }}
         />
       )}
     </div>
   );
 }
 
-function SendOfferForm({ students, jobs, applications, onClose, onSent }: {
+function SendOfferForm({ students, jobs, applications, settings, onClose, onSent }: {
   students: Student[];
   jobs: Job[];
   applications: Application[];
+  settings?: AdminSettings | null;
   onClose: () => void;
   onSent: (msg: string) => void;
 }) {
+  const collegeName = settings?.college_name || 'CampusLink Placement Cell';
   const [studentId, setStudentId] = useState('');
   const [jobId, setJobId] = useState('');
   const [packageLpa, setPackageLpa] = useState('0');
   const [letterText, setLetterText] = useState('');
+  const [channel, setChannel] = useState<'email' | 'whatsapp'>('email');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -202,8 +312,7 @@ Please confirm your acceptance of this offer within 7 days by replying to this e
 Congratulations on your selection! We look forward to welcoming you to the team.
 
 Best Regards,
-Placement Cell
-CampusLink Platform`;
+${collegeName}`;
     setLetterText(text);
   };
 
@@ -228,34 +337,44 @@ CampusLink Platform`;
         job_title: selectedJob.title,
         package_lpa: parseFloat(packageLpa) || 0,
         offer_letter_text: letterText,
-        status: 'sent',
-        sent_at: new Date().toISOString(),
+        status: 'pending',
       }).select().single();
 
       if (insertError) throw insertError;
 
-      // Send email via edge function
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: selectedStudent.email,
-          subject: `Offer Letter from ${selectedJob.company?.name || 'Company'} — CampusLink`,
-          body: letterText,
-          type: 'offer',
-          studentId: studentId,
-        }),
-      });
+      if (channel === 'whatsapp') {
+        const whatsappLink = buildWhatsAppLink(selectedStudent.phone, letterText);
 
-      // Update student status
-      await supabase.from('students')
-        .update({ status: 'placed', placed_company: selectedJob.company?.name || '', placed_package: parseFloat(packageLpa) || 0 })
-        .eq('id', studentId);
+        if (!whatsappLink) {
+          throw new Error('Student phone number not added. Add a phone number first to send WhatsApp messages.');
+        }
 
-      onSent(`Offer letter sent to ${selectedStudent.name} at ${selectedStudent.email}`);
+        window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+      } else {
+        // Send email via edge function
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: selectedStudent.email,
+            subject: `Offer Letter from ${selectedJob.company?.name || 'Company'} — CampusLink`,
+            body: letterText,
+            type: 'offer',
+            studentId: studentId,
+          }),
+        });
+      }
+
+      await supabase.from('offers')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', offer.id);
+
+      onSent(channel === 'whatsapp'
+        ? `Offer letter opened in WhatsApp for ${selectedStudent.name}.`
+        : `Offer letter sent to ${selectedStudent.name} at ${selectedStudent.email}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send offer');
     }
@@ -275,7 +394,7 @@ CampusLink Platform`;
             <label className="block text-sm text-gray-300 mb-1.5">Select Student</label>
             <select value={studentId} onChange={e => setStudentId(e.target.value)} required className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-yellow-400/50">
               <option value="">Choose a student...</option>
-              {students.filter(s => s.status !== 'placed').map(s => (
+              {students.map(s => (
                 <option key={s.id} value={s.id}>{s.name} — {s.email}</option>
               ))}
             </select>
@@ -300,10 +419,21 @@ CampusLink Platform`;
             </div>
             <textarea value={letterText} onChange={e => setLetterText(e.target.value)} required rows={10} className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-400/50 resize-none font-mono" />
           </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1.5">Delivery channel</label>
+            <select
+              value={channel}
+              onChange={e => setChannel(e.target.value as 'email' | 'whatsapp')}
+              className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-yellow-400/50"
+            >
+              <option value="email">Gmail</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <button type="submit" disabled={saving} className="w-full py-2.5 bg-yellow-400 text-black font-bold rounded-lg hover:bg-yellow-300 disabled:opacity-50 flex items-center justify-center gap-2">
             <Send className="w-4 h-4" />
-            {saving ? 'Sending...' : 'Send Offer Letter Email'}
+            {saving ? 'Sending...' : channel === 'whatsapp' ? 'Send Offer Letter via WhatsApp' : 'Send Offer Letter Email'}
           </button>
         </form>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase, sendStudentEmail, type Student, type Job } from '@/lib/supabase';
+import { supabase, sendStudentEmail, buildWhatsAppLink, type Student, type Job, type AdminSettings } from '@/lib/supabase';
 import { dbService } from '@/lib/db-service';
 import { calculateReadiness } from '@/lib/ai-engine';
 import { Search, X, TrendingUp, AlertTriangle, Award, BookOpen, Briefcase, Mail, Plus, CheckCircle2, FileText, Send, Trash2, Pencil } from 'lucide-react';
@@ -7,10 +7,11 @@ import { Search, X, TrendingUp, AlertTriangle, Award, BookOpen, Briefcase, Mail,
 type Props = {
   students: Student[];
   jobs: Job[];
+  settings?: AdminSettings | null;
   onDataChanged?: () => void;
 };
 
-export default function StudentsTab({ students, onDataChanged }: Props) {
+export default function StudentsTab({ students, settings, onDataChanged }: Props) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'placed' | 'unplaced' | 'high' | 'medium' | 'low'>('all');
   const [selected, setSelected] = useState<Student | null>(null);
@@ -129,17 +130,18 @@ export default function StudentsTab({ students, onDataChanged }: Props) {
 
       {/* Detail drawer */}
       {selected && (
-        <StudentDetail student={selected} onClose={() => setSelected(null)} onDataChanged={onDataChanged} />
+        <StudentDetail student={selected} settings={settings} onClose={() => setSelected(null)} onDataChanged={onDataChanged} />
       )}
       {showCreate && <CreateStudent onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); onDataChanged?.(); }} />}
     </div>
   );
 }
 
-function StudentDetail({ student, onClose, onDataChanged }: { student: Student; onClose: () => void; onDataChanged?: () => void }) {
+function StudentDetail({ student, settings, onClose, onDataChanged }: { student: Student; settings?: AdminSettings | null; onClose: () => void; onDataChanged?: () => void }) {
   const readiness = calculateReadiness(student);
+  const collegeName = settings?.college_name || 'CampusLink Placement Cell';
   const [emailSubject, setEmailSubject] = useState('CampusLink placement update');
-  const [emailBody, setEmailBody] = useState(`Hello ${student.name},\n\nHere is an update from the CampusLink Placement Cell.\n\nRegards,\nCampusLink Placement Cell`);
+  const [emailBody, setEmailBody] = useState(`Hello ${student.name},\n\nHere is an update from ${collegeName}.\n\nRegards,\n${collegeName}`);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
   const [showDelete, setShowDelete] = useState(false);
@@ -153,12 +155,24 @@ function StudentDetail({ student, onClose, onDataChanged }: { student: Student; 
     setSending(false);
   }
 
+  function sendWhatsApp() {
+    const whatsappLink = buildWhatsAppLink(student.phone, `${emailSubject}\n\n${emailBody}`);
+
+    if (!whatsappLink) {
+      setMessage('Student phone number not added. Add a phone number first to send WhatsApp messages.');
+      return;
+    }
+
+    window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+    setMessage('WhatsApp chat opened with the message ready to send.');
+  }
+
   async function sendVerification() {
     setSending(true);
     const result = await sendStudentEmail({
       to: student.email,
       subject: 'Verify your CampusLink student email',
-      body: `Hello ${student.name},\n\nPlease reply to this email or contact your placement cell to confirm that this Gmail address belongs to you. Your placement notifications and interview schedules will be sent here.\n\nRegards,\nCampusLink Placement Cell`,
+      body: `Hello ${student.name},\n\nPlease reply to this email or contact your placement cell to confirm that this Gmail address belongs to you. Your placement notifications and interview schedules will be sent here.\n\nRegards,\n${collegeName}`,
       type: 'verification',
       studentId: student.id,
     });
@@ -325,8 +339,11 @@ function StudentDetail({ student, onClose, onDataChanged }: { student: Student; 
             <div className="space-y-3">
               <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white" placeholder="Subject" />
               <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={5} className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-white resize-y" placeholder="Message" />
-              <button onClick={sendEmail} disabled={sending || !emailSubject || !emailBody} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50"><Mail className="w-4 h-4" /> {sending ? 'Sending...' : `Send to ${student.email}`}</button>
-              {message && <p className={`text-sm ${message.includes('error') || message.includes('failed') ? 'text-red-400' : 'text-green-400'}`}>{message}</p>}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button onClick={sendEmail} disabled={sending || !emailSubject || !emailBody} className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50"><Mail className="w-4 h-4" /> {sending ? 'Sending...' : `Send Gmail`}</button>
+                <button onClick={sendWhatsApp} disabled={!student.phone} className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 text-green-400 border border-green-500/30 text-sm font-bold disabled:opacity-50"><Send className="w-4 h-4" /> Send WhatsApp</button>
+              </div>
+              {message && <p className={`text-sm ${message.includes('error') || message.includes('failed') || message.includes('not added') ? 'text-red-400' : 'text-green-400'}`}>{message}</p>}
             </div>
           </div>
 

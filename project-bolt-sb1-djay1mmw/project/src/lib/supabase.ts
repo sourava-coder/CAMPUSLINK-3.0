@@ -139,6 +139,15 @@ export type Notification = {
   student?: Student;
 };
 
+export function buildWhatsAppLink(phone: string | null | undefined, message: string) {
+  const normalized = (phone || '').replace(/\D/g, '');
+
+  if (!normalized) return null;
+
+  const text = encodeURIComponent((message || '').trim() || 'Hello');
+  return `https://wa.me/${normalized}?text=${text}`;
+}
+
 export async function sendStudentEmail({
   to,
   subject,
