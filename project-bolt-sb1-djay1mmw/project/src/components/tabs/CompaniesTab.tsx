@@ -17,6 +17,7 @@ export default function CompaniesTab({ companies, jobs, students, onDataChanged 
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
   const [editTarget, setEditTarget] = useState<Company | null>(null);
+  const [editJobTarget, setEditJobTarget] = useState<Job | null>(null);
 
   return (
     <div className="space-y-4">
@@ -76,9 +77,18 @@ export default function CompaniesTab({ companies, jobs, students, onDataChanged 
               <div className="space-y-2">
                 {companyJobs.map(job => (
                   <div key={job.id} className="bg-zinc-950 rounded-lg p-3 border border-zinc-800">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between gap-2 mb-1">
                       <p className="text-sm text-white font-medium">{job.title}</p>
-                      <span className="text-xs text-yellow-400 font-bold">₹{job.package_lpa}L</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditJobTarget(job)}
+                          title={`Edit ${job.title}`}
+                          className="p-1.5 text-gray-500 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-md transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs text-yellow-400 font-bold">₹{job.package_lpa}L</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>
@@ -96,6 +106,7 @@ export default function CompaniesTab({ companies, jobs, students, onDataChanged 
       {showAddJob && <AddJobForm companies={companies} onClose={() => setShowAddJob(false)} />}
       {deleteTarget && <DeleteCompanyModal company={deleteTarget} onClose={() => setDeleteTarget(null)} onDeleted={() => { setDeleteTarget(null); onDataChanged?.(); }} />}
       {editTarget && <EditCompanyForm company={editTarget} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); onDataChanged?.(); }} />}
+      {editJobTarget && <EditJobForm job={editJobTarget} companies={companies} onClose={() => setEditJobTarget(null)} onSaved={() => { setEditJobTarget(null); onDataChanged?.(); }} />}
     </div>
   );
 }
@@ -159,6 +170,92 @@ function AddCompanyForm({ onClose }: { onClose: () => void }) {
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button type="submit" disabled={saving} className="w-full py-2.5 bg-yellow-400 text-black font-bold rounded-lg hover:bg-yellow-300 disabled:opacity-50">
           {saving ? 'Saving...' : 'Add Company'}
+        </button>
+      </form>
+    </Modal>
+  );
+}
+
+function EditJobForm({ job, companies, onClose, onSaved }: { job: Job; companies: Company[]; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    company_id: job.company_id,
+    title: job.title,
+    description: job.description || '',
+    required_skills: job.required_skills.join(', '),
+    preferred_skills: job.preferred_skills.join(', '),
+    min_cgpa: String(job.min_cgpa),
+    package_lpa: String(job.package_lpa),
+    location: job.location || '',
+    deadline: job.deadline || '',
+    status: job.status,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    const { error: updateError } = await dbService.updateJob(job.id, {
+      company_id: form.company_id,
+      title: form.title,
+      description: form.description,
+      required_skills: form.required_skills.split(',').map(s => s.trim()).filter(Boolean),
+      preferred_skills: form.preferred_skills.split(',').map(s => s.trim()).filter(Boolean),
+      min_cgpa: parseFloat(form.min_cgpa) || 0,
+      package_lpa: parseFloat(form.package_lpa) || 0,
+      location: form.location,
+      deadline: form.deadline || null,
+      status: form.status,
+    });
+
+    if (updateError) {
+      setError(updateError.message);
+      setSaving(false);
+      return;
+    }
+
+    onSaved();
+  };
+
+  return (
+    <Modal title="Edit Job" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm text-gray-300 mb-1.5">Company</label>
+          <select
+            value={form.company_id}
+            onChange={e => setForm({ ...form, company_id: e.target.value })}
+            className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-yellow-400/50"
+          >
+            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <Input label="Job Title" value={form.title} onChange={v => setForm({ ...form, title: v })} required />
+        <TextArea label="Description" value={form.description} onChange={v => setForm({ ...form, description: v })} />
+        <Input label="Required Skills (comma-separated)" value={form.required_skills} onChange={v => setForm({ ...form, required_skills: v })} placeholder="Java, SQL, Python" />
+        <Input label="Preferred Skills (comma-separated)" value={form.preferred_skills} onChange={v => setForm({ ...form, preferred_skills: v })} placeholder="AWS, Docker" />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Min CGPA" value={form.min_cgpa} onChange={v => setForm({ ...form, min_cgpa: v })} type="number" />
+          <Input label="Package (LPA)" value={form.package_lpa} onChange={v => setForm({ ...form, package_lpa: v })} type="number" />
+        </div>
+        <Input label="Location" value={form.location} onChange={v => setForm({ ...form, location: v })} />
+        <Input label="Deadline" value={form.deadline} onChange={v => setForm({ ...form, deadline: v })} type="date" />
+        <div>
+          <label className="block text-sm text-gray-300 mb-1.5">Status</label>
+          <select
+            value={form.status}
+            onChange={e => setForm({ ...form, status: e.target.value })}
+            className="w-full px-3 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:border-yellow-400/50"
+          >
+            <option value="active">Active</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <button type="submit" disabled={saving} className="w-full py-2.5 bg-yellow-400 text-black font-bold rounded-lg hover:bg-yellow-300 disabled:opacity-50">
+          {saving ? 'Saving...' : 'Save changes'}
         </button>
       </form>
     </Modal>
