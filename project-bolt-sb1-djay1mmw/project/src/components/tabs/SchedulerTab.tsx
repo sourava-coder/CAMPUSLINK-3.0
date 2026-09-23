@@ -317,9 +317,9 @@ function ScheduleForm({ students, settings, onClose, onCreated, initialInterview
     onCreated();
   }
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70" onClick={onClose}>
     <div className="absolute inset-0 bg-black/70" />
-    <form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-lg bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4">
+    <div className="flex min-h-screen items-start justify-center p-3 sm:p-6"><form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-lg my-0 sm:my-4 bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4">
       <div className="flex items-center justify-between"><div><h3 className="text-xl font-bold text-white">{initialInterview ? 'Edit schedule' : 'Schedule interview or test'}</h3><p className="text-sm text-gray-500">The selected student can receive the schedule by email.</p></div><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div>
       <label className="block text-sm text-gray-400">Student<select required value={form.student_id} onChange={e => update('student_id', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white">{students.map(student => <option key={student.id} value={student.id}>{student.name} - {student.email}</option>)}</select></label>
       <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-400">Type<select value={form.type} onChange={e => update('type', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white"><option value="interview">Interview</option><option value="test">Test</option><option value="assessment">Assessment</option><option value="other">Other</option></select></label><label className="block text-sm text-gray-400">Round<input min="1" type="number" value={form.round} onChange={e => update('round', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div>
@@ -331,6 +331,6 @@ function ScheduleForm({ students, settings, onClose, onCreated, initialInterview
       </div>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving || !students.length} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? (initialInterview ? 'Updating...' : 'Saving...') : (initialInterview ? 'Update schedule' : 'Save schedule')}</button></div>
-    </form>
+    </form></div>
   </div>;
 }

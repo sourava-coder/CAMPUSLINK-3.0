@@ -268,7 +268,7 @@ export default function Dashboard() {
         </header>
 
         {/* Tab content */}
-        <div key={activeTab} className="p-4 sm:p-6 campuslink-content-in">
+        <div key={activeTab} className="p-4 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-10 h-10 border-4 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
