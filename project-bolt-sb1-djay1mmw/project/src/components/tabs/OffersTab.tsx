@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Offer, Student, Job, Application, AdminSettings } from '@/lib/supabase';
 import { supabase, buildWhatsAppLink } from '@/lib/supabase';
-import { FileText, Send, CheckCircle2, Clock, X, Mail, DollarSign, Building2 } from 'lucide-react';
+import { FileText, Send, CheckCircle2, Clock, X, Mail } from 'lucide-react';
 
 type Props = {
   offers: Offer[];

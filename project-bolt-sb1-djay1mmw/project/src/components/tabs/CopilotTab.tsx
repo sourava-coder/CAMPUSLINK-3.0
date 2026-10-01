@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import type { Student, Job, Application } from '@/lib/supabase';
+import type { Student, Job } from '@/lib/supabase';
 import { generateCopilotResponse, type CopilotResponse } from '@/lib/ai-engine';
 import { Sparkles, Send, Brain, Zap } from 'lucide-react';
 
 type Props = {
   students: Student[];
   jobs: Job[];
-  applications: Application[];
 };
 
 type Message = {
@@ -15,7 +14,7 @@ type Message = {
   data?: unknown;
 };
 
-export default function CopilotTab({ students, jobs, applications }: Props) {
+export default function CopilotTab({ students, jobs }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'ai',
@@ -47,7 +46,7 @@ What would you like to know?`,
     // Simulate AI thinking for UX
     await new Promise(r => setTimeout(r, 400));
 
-    const response: CopilotResponse = generateCopilotResponse(input, students, jobs, applications as never);
+    const response: CopilotResponse = generateCopilotResponse(input, students, jobs);
     setMessages(prev => [...prev, { role: 'ai', text: response.text, data: response.data }]);
     setThinking(false);
   };
@@ -60,7 +59,7 @@ What would you like to know?`,
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)]">
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 flex-col">
       {/* Header */}
       <div className="bg-gradient-to-r from-yellow-400/10 to-transparent border border-yellow-400/20 rounded-2xl p-4 mb-4 flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-black">
@@ -76,7 +75,7 @@ What would you like to know?`,
       </div>
 
       {/* Messages */}
-      <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 overflow-y-auto space-y-4">
+      <div aria-live="polite" className="min-h-0 flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 overflow-y-auto space-y-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${

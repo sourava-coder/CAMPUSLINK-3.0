@@ -1,16 +1,38 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { AuthContext } from './auth-context';
 
-type AuthContextType = {
-  session: Session | null;
-  loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
-};
+function getAuthErrorMessage(message: string, action: 'sign in' | 'register'): string {
+  const normalized = message.toLowerCase();
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+  if (normalized.includes('invalid login credentials')) {
+    return 'Email or password is incorrect. Check your details and try again.';
+  }
+  if (normalized.includes('email not confirmed')) {
+    return 'Please verify your email using the link we sent, then sign in.';
+  }
+  if (normalized.includes('user already registered') || normalized.includes('already been registered')) {
+    return 'An account with this email already exists. Sign in instead.';
+  }
+  if (normalized.includes('invalid email') || normalized.includes('unable to validate email')) {
+    return 'Enter a valid email address and try again.';
+  }
+  if (normalized.includes('password should be at least') || normalized.includes('password is too short')) {
+    const minimumLength = message.match(/at least\s+(\d+)/i)?.[1] || '6';
+    return `Password must be at least ${minimumLength} characters long.`;
+  }
+  if (normalized.includes('rate limit') || normalized.includes('security purposes')) {
+    return 'Too many attempts. Wait a few minutes, then try again.';
+  }
+  if (normalized.includes('fetch') || normalized.includes('network')) {
+    return 'Unable to reach the server. Check your internet connection and try again.';
+  }
+
+  return action === 'register'
+    ? 'We could not create your account right now. Please try again.'
+    : 'We could not sign you in right now. Please try again.';
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -34,51 +56,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
       });
 
-      if (signUpError) {
-        return { error: signUpError.message };
-      }
-
-      // Try to automatically sign in after signup
-      if (data.user) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        });
-
-        if (signInError) {
-          // If email not confirmed, provide instructions
-          if (signInError.message.toLowerCase().includes('email not confirmed')) {
-            return {
-              error: `✅ Account created! अब आप login कर सकते हैं। Supabase Dashboard में जाएं:\n1. Authentication → Users\n2. ${email} को ढूंढें\n3. "Confirm" बटन दबाएं\n4. फिर से Login करें।`,
-            };
-          }
-          return { error: signInError.message };
-        }
-      }
-
-      return { error: null };
+      return { error: error ? getAuthErrorMessage(error.message, 'register') : null };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Sign up failed' };
+      return { error: getAuthErrorMessage(err instanceof Error ? err.message : '', 'register') };
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-    if (!error) return { error: null };
-    if (error.message.toLowerCase().includes('email not confirmed')) {
-      return {
-        error: `📧 Email confirm नहीं है। Supabase Dashboard में:\n1. Authentication → Users जाएं\n2. "${email}" को ढूंढें\n3. "Confirm" दबाएं\n4. फिर से Login करें`,
-      };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      return { error: error ? getAuthErrorMessage(error.message, 'sign in') : null };
+    } catch (err) {
+      return { error: getAuthErrorMessage(err instanceof Error ? err.message : '', 'sign in') };
     }
-    if (error.message.toLowerCase().includes('invalid login credentials')) {
-      return { error: 'Email/password गलत है या यह user नए Supabase project में मौजूद नहीं है। पहले नए project में user बनाएं।' };
-    }
-    return { error: error.message };
   };
 
   const signOut = async () => {
@@ -96,10 +91,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

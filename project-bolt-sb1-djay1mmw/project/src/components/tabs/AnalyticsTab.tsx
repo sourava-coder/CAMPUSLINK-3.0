@@ -1,6 +1,18 @@
 import type { Student, Job, Application, Offer } from '@/lib/supabase';
 import { calculateReadiness } from '@/lib/ai-engine';
-import { TrendingUp, Users, Award, AlertTriangle, Target, BarChart3, DollarSign, Brain } from 'lucide-react';
+import { TrendingUp, Award, AlertTriangle, Target, BarChart3, DollarSign, Brain } from 'lucide-react';
+import {
+  Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
+} from 'recharts';
+
+const chartColors = ['#087f86', '#527da5', '#4d9572', '#d1785e', '#bf9748'];
+const tooltipStyle = {
+  border: '1px solid #d6e2e5',
+  borderRadius: 10,
+  backgroundColor: 'rgba(255, 255, 255, 0.96)',
+  boxShadow: '0 8px 24px rgba(35, 69, 77, 0.12)',
+};
 
 type Props = {
   students: Student[];
@@ -47,6 +59,11 @@ export default function AnalyticsTab({ students, jobs, applications, offers }: P
   const skillSupply: Record<string, number> = {};
   students.forEach(s => s.skills.forEach(sk => { skillSupply[sk] = (skillSupply[sk] || 0) + 1; }));
   const topSupply = Object.entries(skillSupply).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const skillNames = new Set([...topSkills.map(([skill]) => skill), ...topSupply.map(([skill]) => skill)]);
+  const skillComparison = [...skillNames]
+    .map(skill => ({ skill, demand: skillDemand[skill] || 0, students: skillSupply[skill] || 0 }))
+    .sort((a, b) => b.demand + b.students - (a.demand + a.students))
+    .slice(0, 8);
 
   // Application status distribution
   const statusCounts: Record<string, number> = {};
@@ -72,6 +89,18 @@ export default function AnalyticsTab({ students, jobs, applications, offers }: P
     readinessBuckets[r.riskLevel]++;
   });
 
+  const riskData = [
+    { name: 'High risk', value: readinessBuckets.high, color: '#d1785e' },
+    { name: 'Medium risk', value: readinessBuckets.medium, color: '#bf9748' },
+    { name: 'Low risk', value: readinessBuckets.low, color: '#4d9572' },
+  ].filter(item => item.value > 0);
+  const applicationData = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+  const offerStatusCounts: Record<string, number> = {};
+  offers.forEach(offer => {
+    offerStatusCounts[offer.status] = (offerStatusCounts[offer.status] || 0) + 1;
+  });
+  const offerData = Object.entries(offerStatusCounts).map(([status, count]) => ({ status, count }));
+
   return (
     <div className="space-y-6">
       {/* Key metrics */}
@@ -88,74 +117,49 @@ export default function AnalyticsTab({ students, jobs, applications, offers }: P
           <BarChart3 className="w-5 h-5 text-yellow-400" />
           Placement Rate by Branch
         </h3>
-        <div className="space-y-4">
-          {branchData.map(b => (
-            <div key={b.branch}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-300 font-medium">{b.branch}</span>
-                  <span className="text-xs text-gray-500">Avg CGPA {b.avgCgpa}</span>
-                </div>
-                <span className="text-sm text-yellow-400 font-medium">{b.rate}% ({b.placed}/{b.total})</span>
-              </div>
-              <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
-                  style={{ width: `${b.rate}%` }}
+        {branchData.length === 0 ? <ChartEmptyState label="branch placement data" /> : (
+          <div className="h-72 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={branchData} layout="vertical" margin={{ top: 4, right: 24, bottom: 4, left: 4 }}>
+                <CartesianGrid stroke="#dfe8ea" strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tickFormatter={value => `${value}%`} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="branch" width={76} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelFormatter={label => {
+                    const branch = branchData.find(item => item.branch === label);
+                    return `${label} · ${branch?.placed}/${branch?.total} placed · Avg CGPA ${branch?.avgCgpa}`;
+                  }}
+                  formatter={value => [`${value}%`, 'Placement rate']}
                 />
-              </div>
-            </div>
-          ))}
-        </div>
+                <Bar dataKey="rate" name="Placement rate" fill="#087f86" radius={[0, 5, 5, 0]} maxBarSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Skill demand */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
           <h3 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
             <Target className="w-5 h-5 text-yellow-400" />
-            Most Demanded Skills (Recruiters)
+            Skill Demand vs Student Supply
           </h3>
-          <div className="space-y-3">
-            {topSkills.map(([skill, demand]) => {
-              const maxDemand = topSkills[0][1];
-              return (
-                <div key={skill}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-300">{skill}</span>
-                    <span className="text-xs text-gray-500">{Math.round(demand)} mentions</span>
-                  </div>
-                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full" style={{ width: `${(demand / maxDemand) * 100}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Skill supply */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-          <h3 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
-            <Users className="w-5 h-5 text-yellow-400" />
-            Student Skill Distribution
-          </h3>
-          <div className="space-y-3">
-            {topSupply.map(([skill, count]) => {
-              const maxCount = topSupply[0][1];
-              return (
-                <div key={skill}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-300">{skill}</span>
-                    <span className="text-xs text-gray-500">{count} students</span>
-                  </div>
-                  <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-green-400 to-yellow-400 rounded-full" style={{ width: `${(count / maxCount) * 100}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {skillComparison.length === 0 ? <ChartEmptyState label="skill demand and supply data" /> : (
+            <div className="h-80 min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={skillComparison} layout="vertical" margin={{ top: 4, right: 16, bottom: 20, left: 4 }}>
+                  <CartesianGrid stroke="#dfe8ea" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="skill" width={104} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Legend verticalAlign="bottom" height={28} />
+                  <Bar dataKey="demand" name="Recruiter demand (weighted)" fill="#087f86" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="students" name="Students with skill" fill="#658db2" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -165,100 +169,112 @@ export default function AnalyticsTab({ students, jobs, applications, offers }: P
           <DollarSign className="w-5 h-5 text-yellow-400" />
           Package Distribution
         </h3>
-        <div className="flex items-end gap-4 h-48">
-          {packageRanges.map(r => {
-            const maxCount = Math.max(...packageRanges.map(p => p.count), 1);
-            const height = (r.count / maxCount) * 100;
-            return (
-              <div key={r.label} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-sm text-white font-medium">{r.count}</span>
-                <div className="w-full bg-zinc-800 rounded-t-lg overflow-hidden flex-1 flex items-end">
-                  <div
-                    className="w-full bg-gradient-to-t from-yellow-500 to-yellow-400 rounded-t-lg transition-all duration-500"
-                    style={{ height: `${height}%` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-500 text-center">{r.label}</span>
-              </div>
-            );
-          })}
-        </div>
+        {placed.length === 0 ? <ChartEmptyState label="package distribution data" /> : (
+          <div className="h-64 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={packageRanges} margin={{ top: 12, right: 12, bottom: 4, left: -16 }}>
+                <CartesianGrid stroke="#dfe8ea" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={value => [value, 'Students placed']} />
+                <Bar dataKey="count" name="Students placed" radius={[5, 5, 0, 0]} maxBarSize={56}>
+                  {packageRanges.map((range, index) => <Cell key={range.label} fill={chartColors[index % chartColors.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* AI Predictive insights */}
-      <div className="bg-gradient-to-br from-yellow-400/5 to-transparent border border-yellow-400/20 rounded-2xl p-6">
+      <div className="space-y-4">
         <h3 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
           <Brain className="w-5 h-5 text-yellow-400" />
-          AI Predictive Insights
+          Placement Risk, Applications & Offers
         </h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="bg-zinc-900 rounded-xl p-4">
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-red-400/10 flex items-center justify-center text-red-400">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <p className="text-sm text-gray-300 font-medium">Risk Distribution</p>
             </div>
-            <div className="space-y-2 mt-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-red-400">High Risk</span>
-                <span className="text-white">{readinessBuckets.high}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-yellow-400">Medium Risk</span>
-                <span className="text-white">{readinessBuckets.medium}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-green-400">Low Risk</span>
-                <span className="text-white">{readinessBuckets.low}</span>
-              </div>
-            </div>
+            {riskData.length === 0 ? <ChartEmptyState label="risk data" /> : (
+              <>
+                <div className="h-48 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={riskData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={72} paddingAngle={3} stroke="none">
+                        {riskData.map(item => <Cell key={item.name} fill={item.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs">
+                  {riskData.map(item => (
+                    <span key={item.name} className="flex items-center gap-1.5 text-gray-500">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      {item.name}: {item.value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="bg-zinc-900 rounded-xl p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-yellow-400/10 flex items-center justify-center text-yellow-400">
                 <TrendingUp className="w-5 h-5" />
               </div>
               <p className="text-sm text-gray-300 font-medium">Application Pipeline</p>
             </div>
-            <div className="space-y-2 mt-3">
-              {Object.entries(statusCounts).map(([status, count]) => (
-                <div key={status} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400 capitalize">{status}</span>
-                  <span className="text-white">{count}</span>
-                </div>
-              ))}
-              {Object.keys(statusCounts).length === 0 && <p className="text-xs text-gray-600">No applications</p>}
-            </div>
+            {applicationData.length === 0 ? <ChartEmptyState label="application data" /> : (
+              <div className="h-56 min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={applicationData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                    <CartesianGrid stroke="#dfe8ea" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="status" width={76} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="count" name="Applications" fill="#087f86" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
-          <div className="bg-zinc-900 rounded-xl p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center text-green-400">
                 <Award className="w-5 h-5" />
               </div>
-              <p className="text-sm text-gray-300 font-medium">Offer Stats</p>
+              <p className="text-sm text-gray-300 font-medium">Offer Status</p>
             </div>
-            <div className="space-y-2 mt-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Total Offers</span>
-                <span className="text-white">{offers.length}</span>
+            {offerData.length === 0 ? <ChartEmptyState label="offer data" /> : (
+              <div className="h-56 min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={offerData} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                    <CartesianGrid stroke="#dfe8ea" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="status" width={76} tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="count" name="Offers" fill="#658db2" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Sent</span>
-                <span className="text-white">{offers.filter(o => o.status === 'sent' || o.status === 'accepted').length}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Accepted</span>
-                <span className="text-white">{offers.filter(o => o.status === 'accepted').length}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function ChartEmptyState({ label }: { label: string }) {
+  return <div className="flex h-40 items-center justify-center text-sm text-gray-500">No {label} available yet</div>;
 }
 
 function MetricCard({ label, value, icon, sub, color }: {

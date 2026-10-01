@@ -17,7 +17,6 @@ type Conflict = {
 };
 
 export default function SchedulerTab({ interviews, students, settings, onDataChanged }: Props) {
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [showScheduleForm, setShowScheduleForm] = useState(false);

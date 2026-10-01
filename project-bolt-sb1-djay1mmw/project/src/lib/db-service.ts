@@ -1,4 +1,10 @@
-import { supabase } from './supabase';
+import { supabase, type Student, type Company, type Job, type Application, type Interview, type Offer, type Notification, type AdminSettings } from './supabase';
+
+type NewRecord<T, OptionalFields extends keyof T = never> = Omit<T, 'id' | 'created_at' | OptionalFields>
+  & Partial<Pick<T, OptionalFields>>;
+type UpdateRecord<T> = Partial<NewRecord<T>>;
+type NewApplication = Omit<Application, 'id' | 'applied_at' | 'updated_at'>;
+type UpdateApplication = Partial<NewApplication>;
 
 /**
  * Database Service for User-Isolated Data
@@ -7,7 +13,7 @@ import { supabase } from './supabase';
  * ensuring complete data isolation between users
  */
 
-async function getCurrentAdminUserId() {
+async function getCurrentAdminUserId(): Promise<string | null> {
   const { data: sessionData } = await supabase.auth.getSession();
   return sessionData?.session?.user?.id ?? null;
 }
@@ -31,7 +37,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addStudent(student: Omit<any, 'id' | 'admin_user_id' | 'created_at'>) {
+  async addStudent(student: NewRecord<Student>) {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData?.session?.user?.id;
 
@@ -47,7 +53,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateStudent(id: string, updates: any) {
+  async updateStudent(id: string, updates: UpdateRecord<Student>) {
     const { data, error } = await supabase
       .from('students')
       .update(updates)
@@ -84,7 +90,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addCompany(company: Omit<any, 'id' | 'admin_user_id' | 'created_at'>) {
+  async addCompany(company: NewRecord<Company>) {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData?.session?.user?.id;
 
@@ -100,7 +106,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateCompany(id: string, updates: any) {
+  async updateCompany(id: string, updates: UpdateRecord<Company>) {
     const { data, error } = await supabase
       .from('companies')
       .update(updates)
@@ -137,7 +143,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addJob(job: Omit<any, 'id' | 'admin_user_id' | 'created_at'>) {
+  async addJob(job: NewRecord<Job, 'job_type'>) {
     const { data: sessionData } = await supabase.auth.getSession();
     const userId = sessionData?.session?.user?.id;
 
@@ -153,7 +159,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateJob(id: string, updates: any) {
+  async updateJob(id: string, updates: UpdateRecord<Job>) {
     const { data, error } = await supabase
       .from('jobs')
       .update(updates)
@@ -183,7 +189,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addApplication(application: any) {
+  async addApplication(application: NewApplication) {
     const { data, error } = await supabase
       .from('applications')
       .insert([application])
@@ -192,7 +198,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateApplication(id: string, updates: any) {
+  async updateApplication(id: string, updates: UpdateApplication) {
     const { data, error } = await supabase
       .from('applications')
       .update(updates)
@@ -213,7 +219,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addInterview(interview: any) {
+  async addInterview(interview: NewRecord<Interview>) {
     const { data, error } = await supabase
       .from('interviews')
       .insert([interview])
@@ -222,7 +228,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateInterview(id: string, updates: any) {
+  async updateInterview(id: string, updates: UpdateRecord<Interview>) {
     const { data, error } = await supabase
       .from('interviews')
       .update(updates)
@@ -243,7 +249,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addOffer(offer: any) {
+  async addOffer(offer: NewRecord<Offer>) {
     const { data, error } = await supabase
       .from('offers')
       .insert([offer])
@@ -252,7 +258,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateOffer(id: string, updates: any) {
+  async updateOffer(id: string, updates: UpdateRecord<Offer>) {
     const { data, error } = await supabase
       .from('offers')
       .update(updates)
@@ -273,7 +279,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async addNotification(notification: any) {
+  async addNotification(notification: NewRecord<Notification>) {
     const { data, error } = await supabase
       .from('notifications')
       .insert([notification])
@@ -282,7 +288,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateNotification(id: string, updates: any) {
+  async updateNotification(id: string, updates: UpdateRecord<Notification>) {
     const { data, error } = await supabase
       .from('notifications')
       .update(updates)
@@ -303,7 +309,7 @@ export const dbService = {
     return { data, error };
   },
 
-  async updateAdminSettings(updates: any) {
+  async updateAdminSettings(updates: Partial<AdminSettings>) {
     const { data, error } = await supabase
       .from('admin_settings')
       .update(updates)

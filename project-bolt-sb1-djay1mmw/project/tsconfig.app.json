@@ -16,9 +16,8 @@
 
     /* Path alias — depth-invariant imports for src (@/foo === src/foo from any file) */
     "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
 
     /* Linting */

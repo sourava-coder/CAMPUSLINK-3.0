@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useAuth } from '@/lib/auth';
-import { GraduationCap, Mail, Lock, User, ArrowRight, CheckCircle2, Zap, Brain, BarChart3 } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { GraduationCap, Mail, Lock, ArrowRight, CheckCircle2, Zap, Brain, BarChart3, Moon, Sun } from 'lucide-react';
 
-export default function AuthPage() {
+export default function AuthPage({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleTheme: () => void }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'register' | 'verify'>('login');
   const [email, setEmail] = useState('');
@@ -18,36 +18,49 @@ export default function AuthPage() {
     setSuccess(null);
     setLoading(true);
 
-    if (mode === 'register') {
-      if (password !== confirmPassword) {
-        setError('Passwords do not match');
-        setLoading(false);
-        return;
-      }
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters');
-        setLoading(false);
-        return;
-      }
-      const { error } = await signUp(email, password);
-      if (error) {
-        setError(error);
+    try {
+      if (mode === 'register') {
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.');
+          return;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters long.');
+          return;
+        }
+        const { error: signUpError } = await signUp(email, password);
+        if (signUpError) {
+          setError(signUpError);
+        } else {
+          setSuccess('Account created. Check your email for a verification link, then sign in.');
+          setMode('verify');
+        }
       } else {
-        setSuccess('Account created! Check your email for verification, then sign in.');
-        setMode('verify');
+        const { error: signInError } = await signIn(email, password);
+        if (signInError) setError(signInError);
       }
-      setLoading(false);
-    } else {
-      const { error } = await signIn(email, password);
-      if (error) {
-        setError(error);
-      }
+    } catch {
+      setError('Something went wrong. Check your connection and try again.');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div data-theme={theme} className="campuslink-theme min-h-screen flex">
+      <div className="fixed right-4 top-4 z-30 sm:right-6 sm:top-6">
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          aria-pressed={theme === 'dark'}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-sm font-medium text-gray-500 transition hover:border-yellow-400/30 hover:text-yellow-400"
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          <span className="hidden sm:inline">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+        </button>
+      </div>
       {/* Left side — branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/5 via-transparent to-yellow-600/5" />
@@ -171,7 +184,7 @@ export default function AuthPage() {
               )}
 
               {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+                <div role="alert" aria-live="assertive" className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
                   {error}
                 </div>
               )}

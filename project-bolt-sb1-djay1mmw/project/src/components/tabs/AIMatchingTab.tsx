@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Student, Job, Application } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { calculateFitScore, generateLearningPath } from '@/lib/ai-engine';
-import { Brain, Sparkles, Target, TrendingUp, BookOpen, X, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { Brain, Sparkles, Target, BookOpen, X, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
 
 type Props = {
   students: Student[];
@@ -223,39 +223,17 @@ function MatchDetail({ student, job, onClose }: { student: Student; job: Job; on
   ];
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}
-    >
+    <div className="campuslink-match-backdrop" onClick={onClose}>
       <div
-        style={{
-          width: '100%',
-          maxWidth: 512,
-          height: '100vh',
-          marginLeft: 'auto',
-          background: '#09090b',
-          borderLeft: '1px solid rgba(250, 204, 21, 0.2)',
-          boxShadow: '0 30px 80px rgba(0,0,0,0.55)',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-        }}
+        className="campuslink-match-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="match-detail-title"
         onClick={e => e.stopPropagation()}
       >
-        <div
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 20,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#09090b',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            padding: '16px 24px',
-          }}
-        >
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff' }}>Explainable Fit Score</h3>
-          <button onClick={onClose} style={{ color: '#9ca3af' }}>
+        <div className="campuslink-match-header">
+          <h3 id="match-detail-title" className="text-lg font-bold text-white">Explainable Fit Score</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900" aria-label="Close match details">
             <X className="w-5 h-5" />
           </button>
         </div>

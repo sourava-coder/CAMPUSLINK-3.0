@@ -245,8 +245,7 @@ export type CopilotResponse = {
 export function generateCopilotResponse(
   query: string,
   students: Student[],
-  jobs: Job[],
-  applications: { student: Student; job: Job; status: string; fit_score: number }[]
+  jobs: Job[]
 ): CopilotResponse {
   const q = query.toLowerCase().trim();
 

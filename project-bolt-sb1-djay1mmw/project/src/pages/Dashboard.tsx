@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth';
-import { supabase, type Student, type Company, type Job, type Application, type Interview, type Offer, type Notification, type AdminSettings } from '@/lib/supabase';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth-context';
+import { type Student, type Company, type Job, type Application, type Interview, type Offer, type Notification, type AdminSettings } from '@/lib/supabase';
 import { dbService } from '@/lib/db-service';
 import { calculateReadiness } from '@/lib/ai-engine';
 
@@ -20,7 +20,7 @@ function inferCountFromResume(resumeText: string | null, patterns: RegExp[]): nu
 function inferSkillsFromResume(resumeText: string | null): string[] {
   if (!resumeText) return [];
 
-  const skillMatch = resumeText.match(/skill[s]?\s*[:\-]?\s*([^]+)/i);
+  const skillMatch = resumeText.match(/skill[s]?\s*(?::|-)?\s*([^]+)/i);
   const source = skillMatch ? skillMatch[1] : resumeText;
 
   const extracted = source
@@ -43,7 +43,7 @@ function inferSkillsFromResume(resumeText: string | null): string[] {
   )];
 }
 
-function normalizeStudent(student: any): Student {
+function normalizeStudent(student: Partial<Student>): Student {
   const resumeText = typeof student.resume_text === 'string' ? student.resume_text : '';
 
   const inferredSkills = Array.isArray(student.skills) && student.skills.length > 0
@@ -86,7 +86,7 @@ function normalizeStudent(student: any): Student {
 }
 import {
   GraduationCap, LayoutDashboard, Users, Building2, Brain, Calendar,
-  FileText, Bell, LogOut, Sparkles, Menu, X, Settings, RefreshCw
+  FileText, LogOut, Sparkles, Menu, X, Settings, RefreshCw, Moon, Sun
 } from 'lucide-react';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import StudentsTab from '@/components/tabs/StudentsTab';
@@ -94,13 +94,14 @@ import CompaniesTab from '@/components/tabs/CompaniesTab';
 import AIMatchingTab from '@/components/tabs/AIMatchingTab';
 import SchedulerTab from '@/components/tabs/SchedulerTab';
 import OffersTab from '@/components/tabs/OffersTab';
-import AnalyticsTab from '@/components/tabs/AnalyticsTab';
 import CopilotTab from '@/components/tabs/CopilotTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
 
+const AnalyticsTab = lazy(() => import('@/components/tabs/AnalyticsTab'));
+
 type Tab = 'overview' | 'students' | 'companies' | 'matching' | 'scheduler' | 'offers' | 'analytics' | 'copilot' | 'settings';
 
-export default function Dashboard() {
+export default function Dashboard({ theme, onToggleTheme }: { theme: 'light' | 'dark'; onToggleTheme: () => void }) {
   const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -168,9 +169,9 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div data-theme={theme} className="campuslink-theme min-h-screen flex">
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-950 border-r border-yellow-400/10 z-50 transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+      <aside className={`campuslink-sidebar fixed lg:sticky top-0 left-0 h-screen w-64 bg-zinc-950 border-r border-yellow-400/10 z-50 transition-transform duration-300 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="flex items-center justify-between gap-3 px-6 h-16 border-b border-yellow-400/10">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shrink-0 campuslink-logo-glow">
@@ -230,7 +231,7 @@ export default function Dashboard() {
       {/* Main content */}
       <main className="flex-1 min-w-0 overflow-x-hidden">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 min-h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-yellow-400/10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <header className="campuslink-topbar sticky top-0 z-30 min-h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-yellow-400/10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
@@ -254,6 +255,17 @@ export default function Dashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span className="text-xs font-medium">Refresh</span>
             </button>
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              aria-pressed={theme === 'dark'}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 text-sm font-medium text-gray-500 transition hover:border-yellow-400/30 hover:text-yellow-400"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span className="hidden sm:inline">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-400/10 border border-green-400/20 rounded-full">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
               <span className="text-green-400 text-xs font-medium">System Active</span>
@@ -268,26 +280,37 @@ export default function Dashboard() {
         </header>
 
         {/* Tab content */}
-        <div key={activeTab} className="p-4 sm:p-6">
+        <div key={activeTab} className="campuslink-content-in p-4 sm:p-6 lg:p-8">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="w-10 h-10 border-4 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-            </div>
+            <DashboardLoader label="Loading placement data" />
           ) : (
             <>
               {activeTab === 'overview' && <OverviewTab students={students} companies={companies} jobs={jobs} applications={applications} interviews={interviews} offers={offers} notifications={notifications} onNavigate={setActiveTab as (t: string) => void} />}
               {activeTab === 'students' && <StudentsTab students={students} jobs={jobs} settings={settings} onDataChanged={loadAllData} />}
-              {activeTab === 'companies' && <CompaniesTab companies={companies} jobs={jobs} students={students} onDataChanged={loadAllData} />}
+              {activeTab === 'companies' && <CompaniesTab companies={companies} jobs={jobs} onDataChanged={loadAllData} />}
               {activeTab === 'matching' && <AIMatchingTab students={students} jobs={jobs} applications={applications} />}
               {activeTab === 'scheduler' && <SchedulerTab interviews={interviews} students={students} settings={settings} onDataChanged={loadAllData} />}
               {activeTab === 'offers' && <OffersTab offers={offers} students={students} jobs={jobs} applications={applications} settings={settings} onDataChanged={loadAllData} />}
-              {activeTab === 'analytics' && <AnalyticsTab students={students} jobs={jobs} applications={applications} offers={offers} />}
-              {activeTab === 'copilot' && <CopilotTab students={students} jobs={jobs} applications={applications} />}
+              {activeTab === 'analytics' && (
+                <Suspense fallback={<DashboardLoader label="Loading analytics" />}>
+                  <AnalyticsTab students={students} jobs={jobs} applications={applications} offers={offers} />
+                </Suspense>
+              )}
+              {activeTab === 'copilot' && <CopilotTab students={students} jobs={jobs} />}
               {activeTab === 'settings' && <SettingsTab settings={settings} onSaved={loadAllData} />}
             </>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function DashboardLoader({ label }: { label: string }) {
+  return (
+    <div role="status" aria-live="polite" className="campuslink-loader-inline">
+      <span className="campuslink-loader-small" aria-hidden="true" />
+      <span>{label}</span>
     </div>
   );
 }

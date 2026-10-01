@@ -1,20 +1,28 @@
 import { useState } from 'react';
-import type { Company, Job, Student } from '@/lib/supabase';
-import { supabase } from '@/lib/supabase';
+import type { Company, Job } from '@/lib/supabase';
 import { dbService } from '@/lib/db-service';
-import { Building2, Plus, X, MapPin, DollarSign, Calendar, Briefcase, Users, Target, Trash2, AlertTriangle, Pencil } from 'lucide-react';
+import { Building2, Plus, X, MapPin, Briefcase, Users, Target, Trash2, AlertTriangle, Pencil } from 'lucide-react';
+
+function descriptionPreview(description: string): string {
+  return description
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\*\*(.*?)\*\*|__(.*?)__/g, '$1$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 type Props = {
   companies: Company[];
   jobs: Job[];
-  students: Student[];
   onDataChanged?: () => void;
 };
 
-export default function CompaniesTab({ companies, jobs, students, onDataChanged }: Props) {
+export default function CompaniesTab({ companies, jobs, onDataChanged }: Props) {
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [showAddJob, setShowAddJob] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
   const [editTarget, setEditTarget] = useState<Company | null>(null);
   const [editJobTarget, setEditJobTarget] = useState<Job | null>(null);
@@ -68,7 +76,7 @@ export default function CompaniesTab({ companies, jobs, students, onDataChanged 
                 <button onClick={() => setEditTarget(company)} title={`Edit ${company.name}`} className="p-2 text-gray-500 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-colors"><Pencil className="w-4 h-4" /></button>
               </div>
               {company.description && (
-                <p className="text-sm text-gray-400 mb-3 line-clamp-2">{company.description}</p>
+                <p className="text-sm text-gray-400 mb-3 line-clamp-2">{descriptionPreview(company.description)}</p>
               )}
               <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
                 <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> {companyJobs.length} jobs</span>
