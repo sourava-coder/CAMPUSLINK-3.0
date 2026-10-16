@@ -23,11 +23,11 @@ export default function RegistrationQRDialog({ entityType, onClose }: Props) {
     try {
       const { data, error: rpcError } = await supabase.rpc('create_registration_qr', { p_entity_type: entityType });
       if (rpcError) {
-        setError(`QR link nahi ban saka: ${rpcError.message}. Supabase migration apply hui hai, check karein.`);
+        setError(`Could not create the QR link: ${rpcError.message}. Make sure the Supabase migrations have been applied.`);
         return;
       }
       if (typeof data !== 'string' || !data) {
-        throw new Error('Supabase se valid registration token nahi mila.');
+        throw new Error('Supabase did not return a valid registration token.');
       }
 
       const url = new URL(window.location.href);
@@ -38,7 +38,7 @@ export default function RegistrationQRDialog({ entityType, onClose }: Props) {
       setRegistrationUrl(url.toString());
       setQrImage(image);
     } catch (qrError) {
-      setError(qrError instanceof Error ? `QR create nahi hua: ${qrError.message}` : 'QR create nahi hua.');
+      setError(qrError instanceof Error ? `Could not create the QR code: ${qrError.message}` : 'Could not create the QR code.');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export default function RegistrationQRDialog({ entityType, onClose }: Props) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      setError('Link copy nahi hua. Browser clipboard permission check karein.');
+      setError('Could not copy the link. Check your browser clipboard permissions.');
     }
   }
 
@@ -61,14 +61,14 @@ export default function RegistrationQRDialog({ entityType, onClose }: Props) {
         if (token) {
           const { error: revokeError } = await supabase.rpc('revoke_registration_qr', { p_token: token });
           if (revokeError) {
-            setError(`QR revoke nahi hua: ${revokeError.message}`);
+            setError(`Could not revoke the QR code: ${revokeError.message}`);
             return;
           }
         }
       }
       onClose();
     } catch (revokeError) {
-      setError(revokeError instanceof Error ? `QR revoke nahi hua: ${revokeError.message}` : 'QR revoke nahi hua.');
+      setError(revokeError instanceof Error ? `Could not revoke the QR code: ${revokeError.message}` : 'Could not revoke the QR code.');
     }
   }
 
@@ -87,12 +87,12 @@ export default function RegistrationQRDialog({ entityType, onClose }: Props) {
         <div className="space-y-4 p-5">
           <p className="text-sm text-gray-400">
             {entityType === 'job'
-              ? 'Recruiter company aur job details QR form se submit kare. Company aur job dono placement system mein add ho jayenge.'
-              : `QR scan karke ${entityType === 'student' ? 'students' : 'recruiters'} apni details khud submit kar sakte hain. Submit hote hi record add hoga.`}
+              ? 'Recruiters can submit company and job details using this QR form. Both will be added to the placement system.'
+              : `${entityType === 'student' ? 'Students' : 'Recruiters'} can scan this QR code and submit their details. Their record will be added when they submit.`}
           </p>
           {!qrImage ? (
             <button type="button" onClick={generateRegistrationQr} disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 font-bold text-black disabled:opacity-50">
-              <QrCode className="h-5 w-5" /> {loading ? 'QR bana rahe hain...' : 'Generate registration QR'}
+              <QrCode className="h-5 w-5" /> {loading ? 'Generating QR code...' : 'Generate registration QR'}
             </button>
           ) : (
             <div className="flex flex-col items-center gap-3">

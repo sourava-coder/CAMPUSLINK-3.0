@@ -49,7 +49,7 @@ function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
     return error.message;
   }
-  return 'Dobara try karein.';
+  return 'Please try again.';
 }
 
 export default function PublicRegistrationPage({ token }: { token: string }) {
@@ -67,8 +67,8 @@ export default function PublicRegistrationPage({ token }: { token: string }) {
       try {
         const { data, error: rpcError } = await supabase.rpc('get_registration_qr_type', { p_token: token });
         if (!active) return;
-        if (rpcError) setError(`Registration form load nahi hua: ${rpcError.message}`);
-        else if (data !== 'student' && data !== 'recruiter' && data !== 'job') setError('Yeh registration QR invalid ya revoke ho chuka hai.');
+        if (rpcError) setError(`Could not load the registration form: ${rpcError.message}`);
+        else if (data !== 'student' && data !== 'recruiter' && data !== 'job') setError('This registration QR code is invalid or has been revoked.');
         else {
           setEntityType(data);
           if (data === 'job') {
@@ -77,8 +77,8 @@ export default function PublicRegistrationPage({ token }: { token: string }) {
         }
       } catch (loadError) {
         if (active) setError(loadError instanceof Error
-          ? `Registration form load nahi hua: ${loadError.message}`
-          : 'Registration form load nahi hua.');
+          ? `Could not load the registration form: ${loadError.message}`
+          : 'Could not load the registration form.');
       } finally {
         if (active) setLoading(false);
       }
@@ -103,7 +103,7 @@ export default function PublicRegistrationPage({ token }: { token: string }) {
           body: form,
         });
         const result = await response.json() as { error?: string };
-        if (!response.ok) throw new Error(result.error || 'Resume upload ya registration fail hua.');
+        if (!response.ok) throw new Error(result.error || 'Resume upload or registration failed.');
       } else {
         const { error: submitError } = await supabase.rpc('submit_registration_qr', {
           p_token: token,
@@ -115,8 +115,8 @@ export default function PublicRegistrationPage({ token }: { token: string }) {
     } catch (submitError) {
       const message = getErrorMessage(submitError);
       setError(message.includes('valid or has been revoked')
-        ? 'Registration link invalid ya revoke ho chuka hai.'
-        : `Submit nahi hua: ${message}`);
+        ? 'This registration link is invalid or has been revoked.'
+        : `Submission failed: ${message}`);
     } finally {
       setSubmitting(false);
     }
@@ -131,19 +131,19 @@ export default function PublicRegistrationPage({ token }: { token: string }) {
           <div><p className="text-xs font-bold tracking-widest text-yellow-400">CAMPUSLINK</p><h1 className="font-bold text-white">{loading ? 'Loading registration' : heading}</h1></div>
         </header>
         <div className="p-5 sm:p-7">
-          {loading ? <p role="status" className="text-gray-400">Registration form load ho raha hai...</p> : null}
+          {loading ? <p role="status" className="text-gray-400">Loading registration form...</p> : null}
           {!loading && error && !entityType ? <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">{error}</p> : null}
           {submitted ? (
             <div role="status" className="space-y-2 rounded-xl border border-green-400/20 bg-green-400/10 p-5">
               <h2 className="text-lg font-bold text-white">{entityType === 'job' ? 'Job posted successfully' : 'Registration successful'}</h2>
-              <p className="text-sm text-gray-300">{entityType === 'job' ? 'Company aur job details CampusLink mein add ho gayi hain.' : 'Aapki details CampusLink mein add ho gayi hain. Dhanyavaad!'}</p>
+              <p className="text-sm text-gray-300">{entityType === 'job' ? 'The company and job details have been added to CampusLink.' : 'Your details have been added to CampusLink. Thank you!'}</p>
             </div>
           ) : entityType && (
             <form onSubmit={submit} className="space-y-4">
               <p className="mb-5 text-sm text-gray-400">
                 {entityType === 'job'
-                  ? 'Company aur job details bharein. Submit hote hi company ke saath job placement system mein add ho jayegi.'
-                  : 'Neeche details bharein. Submit karte hi record placement system mein add ho jayega.'}
+                  ? 'Enter the company and job details. The company and job will be added to the placement system when you submit.'
+                  : 'Enter your details below. Your record will be added to the placement system when you submit.'}
               </p>
               {fields[entityType].map(field => (
                 <label key={field.name} className="block text-sm font-medium text-gray-300">

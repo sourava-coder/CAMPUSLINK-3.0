@@ -178,7 +178,7 @@ function StudentDetail({ student, settings, onClose, onDataChanged }: { student:
       if (!active) return;
       if (error) {
         setResumeLink('');
-        setResumeError(`Resume link nahi khul saka: ${error.message}`);
+        setResumeError(`Could not open the resume link: ${error.message}`);
         return;
       }
       setResumeLink(data.signedUrl);

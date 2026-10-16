@@ -171,7 +171,7 @@ export async function sendStudentEmail({
       try {
         const details = await response.json();
         if (details?.message === 'Requested function was not found') {
-          return { data: null, error: 'send-email Edge Function deploy नहीं हुई है। Supabase में function deploy करें।' };
+          return { data: null, error: 'The send-email Edge Function is not deployed. Deploy the function in Supabase.' };
         }
         if (details?.error) return { data: null, error: details.error };
         if (details?.message) return { data: null, error: details.message };
