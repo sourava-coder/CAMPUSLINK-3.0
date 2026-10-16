@@ -12,6 +12,11 @@ CAMPUSLINK is an AI-powered campus placement management platform built with Reac
 - Notification and email workflows
 - Admin dashboard with placement analytics
 - Role-based isolation using Supabase auth and database policies
+- Added **Add Student QR** in the Students section. Students can scan the QR code and submit their details through a public registration form.
+- Student registration supports name, email, roll number, branch, phone number, graduation year, LinkedIn, GitHub, and portfolio links.
+- Added optional **PDF resume upload** (up to 5 MB). Resumes are stored privately, with signed links for authorized access.
+- Added token-based QR registration endpoints and database support for creating, validating, revoking, and submitting registrations.
+
 
 ## Tech Stack
 
