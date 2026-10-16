@@ -44,6 +44,11 @@ DROP POLICY IF EXISTS "Admins can delete jobs" ON jobs;
 
 -- ===== STUDENTS TABLE - USER ISOLATION =====
 
+DROP POLICY IF EXISTS "Users can view their own students" ON students;
+DROP POLICY IF EXISTS "Users can insert their own students" ON students;
+DROP POLICY IF EXISTS "Users can update their own students" ON students;
+DROP POLICY IF EXISTS "Users can delete their own students" ON students;
+
 -- Users can only view their own students
 CREATE POLICY "Users can view their own students"
 ON students
@@ -74,6 +79,11 @@ USING (admin_user_id = auth.uid());
 -- Add user_id column
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS admin_user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_companies_admin_user_id ON companies(admin_user_id);
+
+DROP POLICY IF EXISTS "Users can view their own companies" ON companies;
+DROP POLICY IF EXISTS "Users can insert their own companies" ON companies;
+DROP POLICY IF EXISTS "Users can update their own companies" ON companies;
+DROP POLICY IF EXISTS "Users can delete their own companies" ON companies;
 
 -- Users can only view their own companies
 CREATE POLICY "Users can view their own companies"
@@ -106,6 +116,11 @@ USING (admin_user_id = auth.uid());
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS admin_user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_jobs_admin_user_id ON jobs(admin_user_id);
 
+DROP POLICY IF EXISTS "Users can view their own jobs" ON jobs;
+DROP POLICY IF EXISTS "Users can insert their own jobs" ON jobs;
+DROP POLICY IF EXISTS "Users can update their own jobs" ON jobs;
+DROP POLICY IF EXISTS "Users can delete their own jobs" ON jobs;
+
 -- Users can only view their own jobs
 CREATE POLICY "Users can view their own jobs"
 ON jobs
@@ -132,6 +147,9 @@ FOR DELETE
 USING (admin_user_id = auth.uid());
 
 -- ===== ADMIN SETTINGS TABLE - SHARED ACROSS ALL ADMINS =====
+
+DROP POLICY IF EXISTS "Authenticated users can view admin settings" ON admin_settings;
+DROP POLICY IF EXISTS "Authenticated users can update admin settings" ON admin_settings;
 
 -- Anyone authenticated can view admin settings (read-only, shared config)
 CREATE POLICY "Authenticated users can view admin settings"

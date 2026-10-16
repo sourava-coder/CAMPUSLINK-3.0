@@ -1,9 +1,4 @@
--- ===== FIX: Clear old data and update policies for better RLS =====
-
--- Clear all old data (since it doesn't have admin_user_id set)
-TRUNCATE TABLE students CASCADE;
-TRUNCATE TABLE companies CASCADE;
-TRUNCATE TABLE jobs CASCADE;
+-- ===== FIX: Preserve existing data and enforce owner-scoped RLS =====
 
 -- ===== UPDATE RLS POLICIES TO BE MORE STRICT =====
 
@@ -12,16 +7,40 @@ DROP POLICY IF EXISTS "Users can view their own students" ON students;
 DROP POLICY IF EXISTS "Users can insert their own students" ON students;
 DROP POLICY IF EXISTS "Users can update their own students" ON students;
 DROP POLICY IF EXISTS "Users can delete their own students" ON students;
+DROP POLICY IF EXISTS "view_own_students" ON students;
+DROP POLICY IF EXISTS "insert_own_students" ON students;
+DROP POLICY IF EXISTS "update_own_students" ON students;
+DROP POLICY IF EXISTS "delete_own_students" ON students;
+DROP POLICY IF EXISTS "auth_select_students" ON students;
+DROP POLICY IF EXISTS "auth_insert_students" ON students;
+DROP POLICY IF EXISTS "auth_update_students" ON students;
+DROP POLICY IF EXISTS "auth_delete_students" ON students;
 
 DROP POLICY IF EXISTS "Users can view their own companies" ON companies;
 DROP POLICY IF EXISTS "Users can insert their own companies" ON companies;
 DROP POLICY IF EXISTS "Users can update their own companies" ON companies;
 DROP POLICY IF EXISTS "Users can delete their own companies" ON companies;
+DROP POLICY IF EXISTS "view_own_companies" ON companies;
+DROP POLICY IF EXISTS "insert_own_companies" ON companies;
+DROP POLICY IF EXISTS "update_own_companies" ON companies;
+DROP POLICY IF EXISTS "delete_own_companies" ON companies;
+DROP POLICY IF EXISTS "auth_select_companies" ON companies;
+DROP POLICY IF EXISTS "auth_insert_companies" ON companies;
+DROP POLICY IF EXISTS "auth_update_companies" ON companies;
+DROP POLICY IF EXISTS "auth_delete_companies" ON companies;
 
 DROP POLICY IF EXISTS "Users can view their own jobs" ON jobs;
 DROP POLICY IF EXISTS "Users can insert their own jobs" ON jobs;
 DROP POLICY IF EXISTS "Users can update their own jobs" ON jobs;
 DROP POLICY IF EXISTS "Users can delete their own jobs" ON jobs;
+DROP POLICY IF EXISTS "view_own_jobs" ON jobs;
+DROP POLICY IF EXISTS "insert_own_jobs" ON jobs;
+DROP POLICY IF EXISTS "update_own_jobs" ON jobs;
+DROP POLICY IF EXISTS "delete_own_jobs" ON jobs;
+DROP POLICY IF EXISTS "auth_select_jobs" ON jobs;
+DROP POLICY IF EXISTS "auth_insert_jobs" ON jobs;
+DROP POLICY IF EXISTS "auth_update_jobs" ON jobs;
+DROP POLICY IF EXISTS "auth_delete_jobs" ON jobs;
 
 -- ===== CREATE STRICTER POLICIES =====
 

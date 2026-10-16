@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GraduationCap } from 'lucide-react';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
+import PublicRegistrationPage from './pages/PublicRegistrationPage';
 
 const MINIMUM_SPLASH_DURATION_MS = 5000;
 const LOGIN_SPLASH_DURATION_MS = 2000;
@@ -69,6 +70,9 @@ function AppContent() {
   useEffect(() => {
     setAuthVerified(Boolean(session?.user));
   }, [session]);
+
+  const registrationToken = new URLSearchParams(window.location.search).get('register');
+  if (registrationToken) return <PublicRegistrationPage token={registrationToken} />;
 
   if (loading || !splashElapsed) {
     return (

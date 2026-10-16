@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { supabase, sendStudentEmail, buildWhatsAppLink, type Student, type Job, type AdminSettings } from '@/lib/supabase';
 import { dbService } from '@/lib/db-service';
 import { calculateReadiness } from '@/lib/ai-engine';
-import { Search, X, TrendingUp, AlertTriangle, Award, BookOpen, Briefcase, Mail, Plus, CheckCircle2, FileText, Send, Trash2, Pencil } from 'lucide-react';
+import { Search, X, TrendingUp, AlertTriangle, Award, BookOpen, Briefcase, Mail, Plus, CheckCircle2, FileText, Send, Trash2, Pencil, QrCode } from 'lucide-react';
+
+const RegistrationQRDialog = lazy(() => import('@/components/RegistrationQRDialog'));
 
 type Props = {
   students: Student[];
@@ -16,6 +18,7 @@ export default function StudentsTab({ students, settings, onDataChanged }: Props
   const [filter, setFilter] = useState<'all' | 'placed' | 'unplaced' | 'high' | 'medium' | 'low'>('all');
   const [selected, setSelected] = useState<Student | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   const filtered = students.filter(s => {
     const readiness = calculateReadiness(s);
@@ -66,9 +69,14 @@ export default function StudentsTab({ students, settings, onDataChanged }: Props
             </button>
           ))}
         </div>
-        <button onClick={() => setShowCreate(true)} className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-yellow-400 text-black text-sm font-bold hover:bg-yellow-300 lg:w-auto">
-          <Plus className="w-4 h-4" /> Add student
-        </button>
+        <div className="flex w-full gap-2 lg:w-auto">
+          <button onClick={() => setShowCreate(true)} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-yellow-300 lg:flex-none">
+            <Plus className="w-4 h-4" /> Add student
+          </button>
+          <button onClick={() => setShowQr(true)} aria-label="Add Student QR" title="Add Student QR" className="flex items-center justify-center gap-2 rounded-lg border border-yellow-400/20 bg-zinc-900 px-3 py-2.5 text-sm text-yellow-400 hover:bg-zinc-800">
+            <QrCode className="h-4 w-4" /><span>Add Student QR</span>
+          </button>
+        </div>
       </div>
 
       {/* Students grid */}
@@ -133,6 +141,7 @@ export default function StudentsTab({ students, settings, onDataChanged }: Props
         <StudentDetail student={selected} settings={settings} onClose={() => setSelected(null)} onDataChanged={onDataChanged} />
       )}
       {showCreate && <CreateStudent onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); onDataChanged?.(); }} />}
+      {showQr && <Suspense fallback={null}><RegistrationQRDialog entityType="student" onClose={() => setShowQr(false)} /></Suspense>}
     </div>
   );
 }
@@ -146,6 +155,38 @@ function StudentDetail({ student, settings, onClose, onDataChanged }: { student:
   const [message, setMessage] = useState('');
   const [showDelete, setShowDelete] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [resumeLink, setResumeLink] = useState('');
+  const [resumeError, setResumeError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    async function loadResumeLink() {
+      if (!student.resume_url) {
+        setResumeLink('');
+        setResumeError('');
+        return;
+      }
+      if (/^https?:\/\//i.test(student.resume_url)) {
+        setResumeLink(student.resume_url);
+        setResumeError('');
+        return;
+      }
+
+      const { data, error } = await supabase.storage
+        .from('student-resumes')
+        .createSignedUrl(student.resume_url, 3600);
+      if (!active) return;
+      if (error) {
+        setResumeLink('');
+        setResumeError(`Resume link nahi khul saka: ${error.message}`);
+        return;
+      }
+      setResumeLink(data.signedUrl);
+      setResumeError('');
+    }
+    void loadResumeLink();
+    return () => { active = false; };
+  }, [student.resume_url]);
 
   async function sendEmail() {
     setSending(true);
@@ -290,11 +331,17 @@ function StudentDetail({ student, settings, onClose, onDataChanged }: { student:
             <InfoCard label="Graduation year" value={student.graduation_year?.toString() || 'Not added'} />
             <InfoCard label="LinkedIn" value={student.linkedin_url || 'Not added'} />
             <InfoCard label="GitHub" value={student.github_url || 'Not added'} />
+            <InfoCard label="Portfolio" value={student.portfolio_url || 'Not added'} />
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm">
+            {student.linkedin_url && <a href={student.linkedin_url} target="_blank" rel="noreferrer" className="text-yellow-400 hover:underline">LinkedIn profile</a>}
+            {student.github_url && <a href={student.github_url} target="_blank" rel="noreferrer" className="text-yellow-400 hover:underline">GitHub profile</a>}
+            {student.portfolio_url && <a href={student.portfolio_url} target="_blank" rel="noreferrer" className="text-yellow-400 hover:underline">Portfolio</a>}
           </div>
           {student.address && <div><h5 className="text-sm font-semibold text-gray-300 mb-2">Address</h5><p className="text-sm text-gray-400">{student.address}</p></div>}
           <div>
             <h5 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2"><FileText className="w-4 h-4 text-yellow-400" /> Resume</h5>
-            {student.resume_url ? <a href={student.resume_url} target="_blank" rel="noreferrer" className="text-sm text-yellow-400 hover:underline">Open resume link</a> : <p className="text-sm text-gray-500">No resume link added</p>}
+            {resumeLink ? <a href={resumeLink} target="_blank" rel="noreferrer" className="text-sm text-yellow-400 hover:underline">Open resume</a> : student.resume_url ? <p role="status" className="text-sm text-gray-500">{resumeError || 'Loading resume link...'}</p> : <p className="text-sm text-gray-500">No resume link added</p>}
             {student.resume_text && <p className="mt-2 whitespace-pre-wrap text-sm text-gray-400">{student.resume_text}</p>}
           </div>
 
@@ -391,6 +438,7 @@ function EditStudent({ student, onClose, onSaved }: { student: Student; onClose:
     resume_url: student.resume_url || '',
     linkedin_url: student.linkedin_url || '',
     github_url: student.github_url || '',
+    portfolio_url: student.portfolio_url || '',
     address: student.address || '',
     resume_text: student.resume_text || '',
   });
@@ -420,6 +468,7 @@ function EditStudent({ student, onClose, onSaved }: { student: Student; onClose:
       resume_url: form.resume_url || null,
       linkedin_url: form.linkedin_url || null,
       github_url: form.github_url || null,
+      portfolio_url: form.portfolio_url || null,
       resume_text: form.resume_text || null,
     });
 
@@ -443,6 +492,7 @@ function EditStudent({ student, onClose, onSaved }: { student: Student; onClose:
       resume_url: form.resume_url || null,
       linkedin_url: form.linkedin_url || null,
       github_url: form.github_url || null,
+      portfolio_url: form.portfolio_url || null,
       address: form.address || null,
       resume_text: form.resume_text || null,
       risk_level: readiness.riskLevel,
@@ -451,7 +501,7 @@ function EditStudent({ student, onClose, onSaved }: { student: Student; onClose:
     if (updateError) { setError(updateError.message); setSaving(false); return; }
     onSaved();
   }
-  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
+  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'text'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url'], ['portfolio_url', 'Portfolio URL', 'url']];
   return <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={onClose}><div className="absolute inset-0 bg-black/80" /><form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-yellow-400/20 rounded-2xl p-6 space-y-4"><div className="flex items-center justify-between"><h3 className="text-xl font-bold text-white">Edit student profile</h3><button type="button" onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button></div><div className="grid sm:grid-cols-2 gap-3">{fields.map(([key, label, type]) => <label key={key} className="text-sm text-gray-400">{label}<input required={key === 'name' || key === 'email'} type={type} value={form[key]} onChange={e => update(key, e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>)}</div><div className="space-y-4"><label className="block text-sm text-gray-400">Skills (comma separated)<input value={form.skills} onChange={e => update('skills', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Certifications (comma separated)<input value={form.certifications} onChange={e => update('certifications', e.target.value)} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label></div><label className="block text-sm text-gray-400">Address<textarea value={form.address} onChange={e => update('address', e.target.value)} rows={2} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label><label className="block text-sm text-gray-400">Resume details<textarea value={form.resume_text} onChange={e => update('resume_text', e.target.value)} rows={4} className="mt-1 w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-white" /></label>{error && <p className="text-sm text-red-400">{error}</p>}<div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-400">Cancel</button><button disabled={saving} className="px-4 py-2 rounded-lg bg-yellow-400 text-black text-sm font-bold disabled:opacity-50">{saving ? 'Saving...' : 'Save changes'}</button></div></form></div>;
 }
 
@@ -500,6 +550,7 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
     resume_url: '',
     linkedin_url: '',
     github_url: '',
+    portfolio_url: '',
     address: '',
     resume_text: '',
   });
@@ -547,6 +598,7 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
       resume_text: form.resume_text || null,
       email_verified: false,
       email_verification_sent_at: null,
+      portfolio_url: form.portfolio_url || null,
       created_at: new Date().toISOString(),
     } as Student);
 
@@ -581,6 +633,7 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
       resume_text: form.resume_text || null,
       email_verified: false,
       email_verification_sent_at: null,
+      portfolio_url: form.portfolio_url || null,
     });
 
     if (insertError) {
@@ -592,7 +645,7 @@ function CreateStudent({ onClose, onCreated }: { onClose: () => void; onCreated:
     setSaving(false);
   }
 
-  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url']];
+  const fields: [keyof typeof form, string, string][] = [['name', 'Full name', 'text'], ['email', 'Gmail address', 'email'], ['roll_number', 'Roll number', 'text'], ['branch', 'Branch', 'text'], ['phone', 'Phone', 'tel'], ['graduation_year', 'Graduation year', 'number'], ['cgpa', 'CGPA', 'number'], ['projects', 'Projects', 'number'], ['internships', 'Internships', 'number'], ['backlogs', 'Backlogs', 'number'], ['aptitude_score', 'Aptitude score', 'number'], ['communication_score', 'Communication score', 'number'], ['resume_quality', 'Resume quality', 'number'], ['interview_readiness', 'Interview readiness', 'number'], ['resume_url', 'Resume URL', 'url'], ['linkedin_url', 'LinkedIn URL', 'url'], ['github_url', 'GitHub URL', 'url'], ['portfolio_url', 'Portfolio URL', 'url']];
 
   return (
     <Modal title="Add student" onClose={onClose}>

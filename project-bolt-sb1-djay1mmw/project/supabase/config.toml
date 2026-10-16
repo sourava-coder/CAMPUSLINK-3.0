@@ -1,4 +1,7 @@
-project_id = "ymybvabnmuwzlclkkjdq"
+project_id = "apgujgslwrdenvzeyrvv"
 
 [functions.send-email]
 verify_jwt = true
+
+[functions.qr-student-resume]
+verify_jwt = false
